@@ -1,54 +1,51 @@
 # RELink Pico 2 W Reference Lab
 
-このリポジトリは、Raspberry Pi Pico 2 W を物理 Entity として使用する、RELink の最小 L1 エンドツーエンド参照ラボです。Resolver、AR-XML、RELink Web Runtime、Gateway、デバイスセッションを小さな構成で接続し、Web アプリケーションから Pico のオンボード LED と RP2350 内部温度読み取りを明示的に操作します。
+Raspberry Pi Pico 2 W を物理 Entity として、既存の RELink Resolver、AR-XML Core 0.1 Draft 4、RELink Web Runtime 0.1.0、Apache + PHP + SQLite、Pico MicroPython を接続する最小 L1 参照ラボです。
 
-このラボは `relink-web-runtime`、`relink-resolver`、`relink-testbed` の代替実装ではありません。各プロジェクトの仕様・公開リリースを独立したベースラインとして利用します。
+このリポジトリは `relink-web-runtime`、`relink-resolver`、`relink-testbed` の代替実装ではありません。Resolver は既存の Apache + PHP + SQLite 実装を別サービスとして再利用し、Lab は AR-XML、Web UI、Capability API、デバイス command store を提供します。
 
 ## What this lab validates
 
 このラボで検証するもの:
 
 - Resolver Core 0.1 の L1 パス
-- Runtime による Resolver 経由のロード
-- 最終 AR-XML URL の処理
+- 既存 Resolver による UUID → `303 See Other` → AR-XML
+- Runtime 0.1.0 による Resolver-mediated loading
 - この fixture に対する AR-XML Draft 4 の解析・検証
-- この fixture で使う相対 Interface URL の解決
-- 明示的な HTTP Capability 呼び出し
+- 最終 AR-XML URL を基準にした相対 Interface URL 解決
+- 明示的な HTTP Capability invocation
 - 物理出力: Pico オンボード LED
 - 物理入力: RP2350 内部温度の読み取り
 
 このラボが主張しないもの:
 
-- Resolver L2 の真正性
-- 本番 Capability 認可
-- 本番セキュリティ
-- RELink 全体への完全準拠
-- AR-XML 全体への完全準拠
+- Resolver L2 の真正性、認証、認可
+- 本番 Capability authorization / security
+- RELink 全体または AR-XML 全体への完全準拠
 - Runtime による自動実行
+- 正確な室温測定
 
 ## アーキテクチャ
 
 ```text
-Discovery / Description plane
-QR / Anchor URL
-        ↓
-Gateway Resolver: GET /relink/{uuid} → 303
-        ↓
-AR-XML: /arxml/pico2w.arxml
-        ↓
-RELink Web Runtime 0.1.0: ARRuntime.load()
-        ↓
-Capability discovery
+[Discovery / Description]
+QR / Anchor
+  ↓
+existing relink-resolver (Apache + PHP + SQLite)
+  ↓ 303
+Lab AR-XML (Apache static file: public/arxml/pico2w.arxml)
+  ↓
+Browser + RELink Web Runtime 0.1.0
 
-Execution plane
-Human → Web App
-          ↓ RuntimeCapability.invoke()
-Gateway Capability API: /api/light/state, /api/temperature
-          ↓ outbound-only device session
-Pico 2 W: GET command → execute → POST result
+[Execution]
+Human → Web App → RuntimeCapability.invoke()
+  → Lab Capability API (PHP)
+  → SQLite command store / correlation
+  ⇅ outbound-only HTTPS polling
+Pico 2 W (MicroPython)
 ```
 
-境界は次のように保ちます。
+境界は明示的に保ちます。
 
 ```text
 Entity      ≠ Location
@@ -57,116 +54,103 @@ Description ≠ Execution
 Resolution  ≠ Authentication
 ```
 
-Resolver は UUID と現在の AR-XML Description Location の対応だけを扱い、AR-XML を解釈したり Capability を選択・実行したりしません。Web Runtime はロード時に Capability を自動実行せず、呼び出しはボタン操作による明示的な `invoke()` のみです。
+Resolver は UUID と current AR-XML Description Location の対応だけを扱い、AR-XML を fetch/parse したり Capability を実行したりしません。Web Runtime の `load()` は発見・記述処理であり、Capability 実行はユーザーがボタンを押したときの `invoke()` に限ります。
 
 ## 必要なもの
 
-- Python 3.11 以上（標準ライブラリのみ）
-- `uv` と `pytest`（テスト実行時）
-- Raspberry Pi Pico 2 W
-- Pico 2 W 用 MicroPython
+- Apache 2.4（`mod_rewrite`、`.htaccess` の `AllowOverride FileInfo`）
+- PHP 8.1 以上（PDO、`pdo_sqlite`、JSON）
+- SQLite 3
+- Python 3.11 以上、`uv`（Runtime 取得・補助テスト用）
+- Raspberry Pi Pico 2 W、対応 MicroPython
 - Wi-Fi またはスマートフォンのテザリング
-- Runtime アセット取得時のインターネット接続
 
-本番相当の公開には、Gateway の前段に通常の HTTPS リバースプロキシまたは HTTPS 対応ホスティングを置いてください。カスタムドメインは不要で、プロバイダーが提供する HTTPS URL で構いません。
+Python はサーバー実行環境ではありません。Lab の Web/Capability/device endpoint は PHP、共有状態は DocumentRoot 外の SQLite が担当します。
 
 ## セットアップ
 
 ### 1. Runtime 0.1.0 を取得
 
-Runtime は手動コピーせず、公開リリースのアセットを SHA-256 検証付きで取得します。
+Runtime のソースツリーはコピーせず、公開 standalone ESM asset を SHA-256 検証付きで取得します。
 
 ```text
 uv run python scripts/download_runtime.py
 ```
 
-取得先は `web/vendor/relink-web-runtime.js` です。このファイルは Git 管理対象外で、スクリプトにリリース URL とダイジェストを固定しています。
+取得先は `public/vendor/relink-web-runtime.js` です。URL と SHA-256 は取得スクリプトに固定され、アセット自体は Git 管理対象外です。
 
-### 2. Gateway を起動
-
-ローカル確認では次のように起動します。
+### 2. SQLite を初期化
 
 ```text
-uv run python gateway/server.py
+php scripts/init_db.php
 ```
 
-ブラウザーで `http://127.0.0.1:8000/` を開きます。Anchor URL は次の既定値です。
+既定のデータベースは `data/lab.sqlite` です。`data/` は Apache DocumentRoot の外側に置きます。別の場所を使う場合は Apache/PHP の `LAB_DB_PATH` を同じ絶対パスに設定してください。
+
+### 3. Apache を設定
+
+Apache VirtualHost の `DocumentRoot` をこのリポジトリの `public/` に設定し、次を許可します。
+
+```apache
+<Directory "<checkout>/public">
+    AllowOverride FileInfo
+    Require all granted
+</Directory>
+```
+
+`public/.htaccess` が、PHP の実ファイル名を AR-XML と Web UI に露出させず、次の公開 route へ rewrite します。
 
 ```text
-http://127.0.0.1:8000/relink/550e8400-e29b-41d4-a716-446655440000
+/api/light/state
+/api/temperature
+/device/commands?device_id=pico2w-01
+/device/results/{command_id}
 ```
 
-ローカルの HTTP は開発専用です。L1 の公開運用では、Gateway を HTTPS URL で公開し、`PUBLIC_BASE_URL` にその URL を設定してください。
+`LAB_DB_PATH`、`DEVICE_ID`、`DEVICE_COMMAND_TIMEOUT` は Apache の VirtualHost または PHP-FPM pool で設定します。公開時は通常の HTTPS reverse proxy / hosting で TLS を終端してください。
+
+### 4. 既存 Resolver を登録
+
+`relink-resolver` を別サービスとして起動し、管理面で次を登録します。Lab は Resolver の登録 API を再実装しません。
 
 ```text
-PUBLIC_BASE_URL=https://example.provider.invalid/lab uv run python gateway/server.py
+Anchor UUID: 550e8400-e29b-41d4-a716-446655440000
+Description Location: https://<lab-host>/arxml/pico2w.arxml
+状態: ACTIVE
 ```
 
-Windows PowerShell の例:
+QR / Anchor には次のような既存 Resolver の公開 URL を設定します。
 
-```powershell
-$env:PUBLIC_BASE_URL = "https://example.provider.invalid/lab"
-uv run python gateway/server.py
+```text
+https://<resolver-host>/relink/550e8400-e29b-41d4-a716-446655440000
 ```
 
-`PUBLIC_BASE_URL` が `/lab` を含む場合は、リバースプロキシがそのパスを保ったまま Gateway に転送する必要があります。HTTPS 終端の設定、証明書、公開 DNS はホスティング環境の責任であり、RELink プロトコルには含めません。
+通常の L1 は Resolver → AR-XML の直接 `303` であり、Manifest を前提にしません。
 
-### 3. Pico 2 W を設定
+### 5. Pico 2 W を設定
 
-`firmware/pico2w/config.example.py` を `config.py` として Pico にコピーし、Wi-Fi と Gateway のデバイス API URL を設定します。
+`firmware/pico2w/config.example.py` を `config.py` として Pico にコピーし、Wi-Fi と Lab の device endpoint を設定します。
 
 ```python
 WIFI_SSID = "your-wifi"
 WIFI_PASSWORD = "your-password"
 DEVICE_ID = "pico2w-01"
-GATEWAY_URL = "https://example.provider.invalid/device"
+GATEWAY_URL = "https://<lab-host>/device"
 ```
 
-`boot.py`、`main.py`、`config.py` を Pico のルートへ配置して再起動します。デバイスは次の順序で動作します。
+`boot.py`、`main.py`、`config.py` を Pico のルートへ配置して再起動します。Pico は `GET /device/commands` → 実行 → `POST /device/results/{id}` を繰り返し、接続失敗時は指数 backoff します。
 
-```text
-GET  {GATEWAY_URL}/commands?device_id={DEVICE_ID}
-実行
-POST {GATEWAY_URL}/results/{command_id}
-再接続時は 1 秒から 30 秒まで指数バックオフ
-```
-
-この実装の MicroPython 上の TLS/CA 検証は、対応するファームウェアと HTTP クライアントを含む物理環境で検証済みではありません。`urequests` の TLS 実装が使用されるため、公開運用では CA 検証を実施できる Pico 用ビルド・クライアントで確認し、確認できない場合は本番用途に使用しないでください。リポジトリのローカル HTTP 動作はこの検証を代替しません。
-
-### 4. Resolver 登録と Anchor / QR
-
-このラボの開発用 Gateway は、fixture の UUID をローカルで登録済みとして扱います。実際の Resolver 環境を使う場合は、管理 API で次の値を登録し、公開された Resolver URL を QR または Anchor に設定してください。
-
-```text
-UUID: 550e8400-e29b-41d4-a716-446655440000
-Description Location: https://<公開Gateway>/arxml/pico2w.arxml
-状態: ACTIVE
-```
-
-本番の Resolver は `GET /relink/{uuid}` に対して、登録された絶対 HTTPS URL を `303 See Other` の `Location` ヘッダーで返します。Manifest は通常の L1 シリアル経路に含めません。
+このリポジトリでは Pico 実機上の TLS/CA 検証を完了していません。MicroPython の `urequests` と使用する firmware の CA 検証、SNI、メモリ制限を実機で確認してから公開運用してください。
 
 ## 操作方法
 
-1. Web アプリケーションの Anchor URL を確認して「Entity を読み込む」を押す。
-2. 表示された Capability が `light` と `temperature` の 2 件であることを確認する。
-3. 「LED を ON」または「LED を OFF」を押す。ロードだけでは LED は変化しない。
-4. 「温度を読み取る」を押し、数値結果を確認する。
-5. 温度は RP2350 内部温度であり、正確な室温センサー値として扱わない。
+1. `https://<lab-host>/` を開く。
+2. 既存 Resolver の Anchor URL を入力し、「Entity を読み込む」を押す。
+3. `light` と `temperature` が表示されることを確認する。
+4. 「LED を ON/OFF」または「温度を読み取る」を押す。
+5. LED の状態または JSON の温度値を確認する。
 
-Gateway と Pico が接続していない場合、Capability API はタイムアウト後に HTTP 504 を返し、Web UI はエラーを表示します。
-
-## 手動物理受け入れチェックリスト
-
-- [ ] Pico が文書化した Wi-Fi / テザリングへ接続する。
-- [ ] Pico が outbound device session を確立する。
-- [ ] Anchor URL が Resolver Core L1 で AR-XML URL に解決される。
-- [ ] Web Runtime 0.1.0 が Anchor 経由でロードされる。
-- [ ] Web App に期待する 2 Capability が表示される。
-- [ ] ユーザー操作による `light.setState(true)` でオンボード LED が点灯する。
-- [ ] ユーザー操作による `light.setState(false)` でオンボード LED が消灯する。
-- [ ] ユーザー操作による `temperature.read()` が数値を返す。
-- [ ] タイムアウト・エラーがハングせず表示される。
-- [ ] Entity のロード・発見だけでは Capability が呼び出されない。
+ロード・発見だけでは物理操作は発生しません。温度値は RP2350 内部温度で、正確な室温センサー値ではありません。
 
 ## テスト
 
@@ -175,24 +159,30 @@ uv run pytest
 uv run ruff check .
 ```
 
-テストは、UUID の L1 解決、HTTP ヘッダー、禁止されたコマンド、コマンド ID 相関、タイムアウト、入力検証、AR-XML fixture の必須要素を対象にします。Pico の物理動作と外部 HTTPS 終端は手動手順で確認します。
+テストは route 配線、AR-XML fixture、PHP CLI が存在する環境での全 PHP lint を対象にします。PHP が存在しない開発環境では PHP lint は skip されるため、Apache/PHP 環境で必ず実行してください。
 
-## トラブルシューティング
+## 手動物理受け入れチェックリスト
 
-- `web/vendor/relink-web-runtime.js` がない: `uv run python scripts/download_runtime.py` を実行する。
-- Capability がタイムアウトする: Gateway の `/device/commands` を Pico がポーリングしているか、`DEVICE_ID` と Gateway の `DEVICE_ID` が一致しているか確認する。
-- `303` の後でロードできない: 公開運用では Resolver と Description Location の両方が HTTPS であること、AR-XML 配信の CORS とリバースプロキシのパスを確認する。
-- LED が動かない: Pico 2 W 用 MicroPython と `Pin("LED")` が利用できることを確認する。温度値はセンサー校正値ではない。
-- `504` が返る: デバイス未接続、Wi-Fi 切断、または `DEVICE_COMMAND_TIMEOUT` を超過している可能性がある。
+- [ ] Pico が文書化した Wi-Fi / テザリングへ bounded timeout 内に接続する。
+- [ ] Pico が outbound HTTPS device session を確立する。
+- [ ] Anchor URL が既存 Resolver L1 から AR-XML URL へ `303` される。
+- [ ] Web Runtime 0.1.0 が Anchor path をロードする。
+- [ ] Web App に 2 Capability が表示される。
+- [ ] `light.setState(true)` で LED が点灯する。
+- [ ] `light.setState(false)` で LED が消灯する。
+- [ ] `temperature.read()` が数値を返す。
+- [ ] デバイス停止時に API が 504 を返し、UI がエラーを表示する。
+- [ ] ロードだけでは Capability が実行されない。
 
-## 既知の制限
+## トラブルシューティングと制限
 
-- Gateway のデバイス API はこのラボ用の小さなコマンド集合だけを受け付ける。任意の TCP プロキシではない。
-- インメモリセッションのため、Gateway 再起動時に待機中コマンドは失われる。
-- 認証、Capability Grant、デバイス証明、Resolver L2、署名、監査ログは実装しない。
-- Gateway 自体は標準ライブラリの開発用 HTTP サーバーであり、本番サーバー・TLS 終端ではない。
-- `urequests` の MicroPython TLS/CA 動作はこのリポジトリでは物理検証していない。
+- Runtime asset がない場合は download script を実行する。
+- 504 は Pico の offline、Wi-Fi 断、command expiry、または timeout の可能性がある。
+- `commands` が 204 のときは待機中 command がない。expired command は Pico へ配送されない。
+- result の 404/403/409/5xx は Pico 側で成功扱いにせず backoff へ戻る。
+- SQLite command store は共有状態だが、単一 Lab 用の最小実装であり、認証・暗号化・高可用性は提供しない。
+- Gateway/Capability API は Apache + PHP、Resolver は既存 `relink-resolver` という別責務である。
 
-## ラボの調査結果
+## 調査結果
 
-実装上の観察と Draft 4 の曖昧さは [docs/findings.md](docs/findings.md) に分類して記録しています。
+Draft 4 の相対 endpoint、内部温度、MicroPython TLS/CA、SQLite session の観察は [docs/findings.md](docs/findings.md) に分類して記録しています。

@@ -1,44 +1,80 @@
-# セットアップ補足
+# Apache + PHP + SQLite セットアップ
 
-## Runtime アセット
+## 前提
 
-`@relink/web-runtime` の npm ソースツリーや `src/` は取り込みません。次のスクリプトだけが v0.1.0 の standalone ESM asset を取得します。
+Lab のサーバー側は Apache 2.4 + PHP 8.1+ + PDO SQLite です。Python は Runtime asset の取得と補助テストだけに使います。Resolver は別サービスとして既存 `relink-resolver` を使います。
 
-```text
-uv run python scripts/download_runtime.py
-```
+## 初期化
 
-固定値:
+1. Runtime を取得する。
 
-```text
-URL: https://github.com/ranmaru50/relink-web-runtime/releases/download/v0.1.0/relink-web-runtime.js
-SHA-256: f18d739edabc23285abd5fb64fcc056f17aaf480ddd1e0b6bed1702f8aab9e46
-```
+   ```text
+   uv run python scripts/download_runtime.py
+   ```
 
-アセットは `.gitignore` に含まれるため、クリーンチェックアウトの再現にはこのダウンロード手順が必要です。
+2. `pdo_sqlite` が有効な PHP で DB を作る。
 
-## HTTPS とリバースプロキシ
+   ```text
+   php scripts/init_db.php
+   ```
 
-開発サーバーは TLS 終端を持たない標準ライブラリ HTTP サーバーです。公開時は HTTPS 対応のホスティング、または HTTPS リバースプロキシから Gateway へ転送します。`PUBLIC_BASE_URL` はブラウザーから見える URL に合わせます。
+3. Apache の DocumentRoot を `public/` に設定する。`data/` は DocumentRoot 外に残す。
 
-```text
-公開: https://lab.example/relink/<uuid>
-303: Location: https://lab.example/arxml/pico2w.arxml
-```
+   ```apache
+   <Directory "<checkout>/public">
+       AllowOverride FileInfo
+       Require all granted
+   </Directory>
+   ```
 
-`X-Forwarded-Proto` は Gateway の公開 URL を推測するための認証機構ではありません。信頼できる自分のリバースプロキシからだけ付与し、通常は `PUBLIC_BASE_URL` を明示してください。
+4. PHP/FPM から `data/lab.sqlite` を読み書きできるようにする。別パスの場合は `LAB_DB_PATH` を初期化時と実行時で一致させる。
 
-## Pico の TLS/CA
+5. `public/.htaccess` の `mod_rewrite` を有効にする。
 
-このリポジトリでは Pico の物理ボード上で TLS/CA 検証を完了していません。`main.py` は MicroPython の `urequests`（利用可能なら `requests`）に依存しますが、ファームウェアごとの証明書検証・SNI・メモリ制限は差があります。HTTPS endpoint へ接続できることを本番の証拠とみなさず、使用するビルドで CA 検証を確認してから運用してください。
+## Resolver の登録
 
-## Resolver 登録
-
-実際の `relink-resolver` では管理面から UUID と current Description Location を登録します。L1 の登録値は次の二つだけです。
+既存 Resolver の管理面で、次を ACTIVE record として登録します。
 
 ```text
 UUID: 550e8400-e29b-41d4-a716-446655440000
-Location: https://<public-host>/arxml/pico2w.arxml
+Description Location: https://<lab-host>/arxml/pico2w.arxml
 ```
 
-Manifest は登録や通常の `GET /relink/{uuid}` の前提にしません。
+公開 Anchor は次の Resolver URL です。
+
+```text
+https://<resolver-host>/relink/550e8400-e29b-41d4-a716-446655440000
+```
+
+この Lab は `/relink/{uuid}` を提供しません。Resolver が返す `303 Location` と static AR-XML がそれぞれ HTTPS で取得できることを確認します。
+
+## 公開 HTTPS
+
+Lab の Apache 自体、または通常の HTTPS hosting / reverse proxy で TLS を終端します。`public/arxml/pico2w.arxml` と PHP API の CORS はブラウザー実行に必要な範囲で設定しています。Resolver の CORS と AR-XML の CORS は別々に確認してください。
+
+カスタムドメインは不要です。プロバイダーが提供する HTTPS endpoint で構いません。HTTPS の証明書・DNS・proxy header は Web インフラの責務であり、RELink Resolver / AR-XML semantics には含まれません。
+
+## Pico 設定
+
+`firmware/pico2w/config.example.py` を `config.py` として Pico にコピーします。
+
+```python
+DEVICE_ID = "pico2w-01"
+GATEWAY_URL = "https://<lab-host>/device"
+```
+
+Pico の通信は `GET /commands?device_id=...` と `POST /results/{command_id}` です。Gateway の設定 `DEVICE_ID` と一致させます。
+
+このリポジトリでは MicroPython の firmware、`urequests`、CA bundle の組み合わせを実機で検証していません。TLS の証明書検証、SNI、タイムアウト、メモリ使用量を実機で確認してから公開してください。
+
+## 確認コマンド
+
+```text
+uv run pytest
+uv run ruff check .
+php -l src/LabStore.php
+php -l public/api/light-state.php
+php -l public/api/temperature.php
+php -l public/device/commands.php
+php -l public/device/result.php
+```

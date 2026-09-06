@@ -14,7 +14,7 @@ RUNTIME_URL = (
     "v0.1.0/relink-web-runtime.js"
 )
 RUNTIME_SHA256 = "f18d739edabc23285abd5fb64fcc056f17aaf480ddd1e0b6bed1702f8aab9e46"
-OUTPUT_PATH = Path(__file__).resolve().parents[1] / "web" / "vendor" / "relink-web-runtime.js"
+OUTPUT_PATH = Path(__file__).resolve().parents[1] / "public" / "vendor" / "relink-web-runtime.js"
 
 
 def download_runtime() -> Path:

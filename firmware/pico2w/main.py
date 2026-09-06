@@ -31,13 +31,19 @@ def gateway_url(path):
 
 
 def connect_wifi():
-    """Wi-Fi 接続を確立し、接続できるまで待機する。"""
+    """Wi-Fi 接続を bounded wait で確立し、失敗時は外側へ例外を返す。"""
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     if not wlan.isconnected():
         wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
+        deadline = time.ticks_add(
+            time.ticks_ms(), config.WIFI_CONNECT_TIMEOUT_SECONDS * 1000
+        )
         while not wlan.isconnected():
-            time.sleep(1)
+            if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
+                wlan.disconnect()
+                raise RuntimeError("Wi-Fi connection timed out")
+            time.sleep_ms(250)
     return wlan
 
 
@@ -85,16 +91,21 @@ def poll_once():
         raise RuntimeError("command id is missing")
     try:
         values = execute_command(command)
-        payload = {"ok": True, "values": values}
+        payload = {"device_id": config.DEVICE_ID, "ok": True, "values": values}
     except Exception as error:
-        payload = {"ok": False, "error": str(error)}
+        payload = {"device_id": config.DEVICE_ID, "ok": False, "error": str(error)}
     result_response = requests.post(
         gateway_url("results/") + command_id,
         data=json.dumps(payload),
+        # Result callback の失敗を外側の reconnect/backoff へ伝える。
         headers={"Content-Type": "application/json"},
         timeout=config.HTTP_TIMEOUT_SECONDS,
     )
-    result_response.close()
+    try:
+        if result_response.status_code != 200:
+            raise RuntimeError("result callback HTTP status: " + str(result_response.status_code))
+    finally:
+        result_response.close()
 
 
 def run():

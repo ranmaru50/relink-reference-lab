@@ -1,4 +1,4 @@
-// web/app.js
+// public/app.js
 // Web Runtime を使って Entity を発見し、ユーザー操作だけで Capability を呼び出す。
 
 import { ARRuntime } from "./vendor/relink-web-runtime.js";
