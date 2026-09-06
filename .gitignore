@@ -1,13 +1,54 @@
+# Python のキャッシュ・カバレッジ
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
 .venv/
+.mypy_cache/
+.pytype/
+.coverage
+htmlcov/
+
+# Node.js / pnpm の依存関係・ログ・キャッシュ
 node_modules/
 .pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# テスト・カバレッジの生成物
 coverage/
-vendor/
 .phpunit.result.cache
+.phpunit.cache/
+
+# Composer の依存関係・ローカル実行ファイル
+vendor/
+composer.phar
+
+# ローカル設定・実行時ログ
+.env
+.env.*
+!.env.example
+*.log
+*.sqlite-wal
+*.sqlite-shm
+
+# OS・エディターの一時ファイル
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+
+# Codex/レビュー作業で一時生成するファイル
+commit_message.txt
+review_response.md
+
+# 外部配布物・ローカル設定
 public/vendor/relink-web-runtime.js
 web/vendor/relink-web-runtime.js
 firmware/pico2w/config.py
