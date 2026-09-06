@@ -77,4 +77,7 @@ php -l public/api/light-state.php
 php -l public/api/temperature.php
 php -l public/device/commands.php
 php -l public/device/result.php
+uv run python scripts/apache_acceptance.py --base-url https://<lab-host>
 ```
+
+最後の acceptance は Apache を実際に経由し、static AR-XML、`.htaccess` rewrite 後の PHP route、JSON validation、OPTIONS/CORS、empty device polling、malformed result の HTTP status を検証します。Pico が接続している場合は、Web UI の explicit invoke で LED と温度の成功経路も確認します。

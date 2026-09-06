@@ -159,7 +159,15 @@ uv run pytest
 uv run ruff check .
 ```
 
-テストは route 配線、AR-XML fixture、PHP CLI が存在する環境での全 PHP lint を対象にします。PHP が存在しない開発環境では PHP lint は skip されるため、Apache/PHP 環境で必ず実行してください。
+テストは route 配線、AR-XML fixture、PHP CLI が存在する環境での全 PHP lint と SQLite state smoke を対象にします。PHP が存在しない開発環境では PHP lint/smoke は skip されるため、Apache/PHP 環境で必ず実行してください。
+
+Apache の実 HTTP route は、Apache を起動した状態で次を実行します。
+
+```text
+uv run python scripts/apache_acceptance.py --base-url https://<lab-host>
+```
+
+この acceptance は static AR-XML、PHP rewrite 後の入力 validation、OPTIONS/CORS、empty device polling、malformed result response を実 request で確認します。Pico が接続している場合の成功経路は、続く手動チェックリストで確認します。
 
 ## 手動物理受け入れチェックリスト
 
@@ -173,6 +181,7 @@ uv run ruff check .
 - [ ] `temperature.read()` が数値を返す。
 - [ ] デバイス停止時に API が 504 を返し、UI がエラーを表示する。
 - [ ] ロードだけでは Capability が実行されない。
+- [ ] Apache acceptance が実 HTTP route、JSON status、CORS を確認する。
 
 ## トラブルシューティングと制限
 
@@ -180,6 +189,7 @@ uv run ruff check .
 - 504 は Pico の offline、Wi-Fi 断、command expiry、または timeout の可能性がある。
 - `commands` が 204 のときは待機中 command がない。expired command は Pico へ配送されない。
 - result の 404/403/409/5xx は Pico 側で成功扱いにせず backoff へ戻る。
+- Pico が物理 command 実行後に result callback を失うと、物理 side effect は発生したが Web API は 504 になる可能性がある。command は再配送せず、at-most-once 寄りで扱う。
 - SQLite command store は共有状態だが、単一 Lab 用の最小実装であり、認証・暗号化・高可用性は提供しない。
 - Gateway/Capability API は Apache + PHP、Resolver は既存 `relink-resolver` という別責務である。
 

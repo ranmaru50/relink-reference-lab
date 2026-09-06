@@ -29,6 +29,18 @@ try {
         throw new RuntimeException('result correlation に失敗しました');
     }
 
+    $malformedId = $store->enqueue('pico2w-01', 'temperature.read', [], 2);
+    $malformedCommand = $store->claimNext('pico2w-01');
+    if ($malformedCommand === null || $store->complete($malformedId, 'pico2w-01', ['ok' => 'yes']) !== 'malformed') {
+        throw new RuntimeException('malformed result が failed に確定しません');
+    }
+    try {
+        $store->waitForResult($malformedId, 1);
+        throw new RuntimeException('malformed result が成功扱いになりました');
+    } catch (LabStoreCommandFailed $error) {
+        // malformed result は timeout ではなく terminal failed であることを確認する。
+    }
+
     $expiredId = $store->enqueue('pico2w-01', 'temperature.read', [], 0.1);
     usleep(200000);
     if ($store->claimNext('pico2w-01') !== null) {

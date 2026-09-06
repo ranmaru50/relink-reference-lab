@@ -33,3 +33,19 @@
 - Implementation-specific?: はい。
 - Core change candidate?: いいえ。
 - Profile candidate?: いいえ。デプロイメント受け入れで確認する。
+
+## Finding 5: Result callback 喪失
+
+- Observation: Pico が物理 command を実行した後に result POST を失うと、Gateway は API caller へ 504 を返し得る一方、物理 side effect は既に発生している。`delivered` command は再配送しないため、Lab v0.1 は at-most-once 寄りの ambiguous outcome になる。
+- Draft 4 ambiguity?: いいえ。Capability transport の delivery guarantee は Core の外側。
+- Implementation-specific?: はい。再試行、冪等キー、device acknowledgement を追加する場合は Gateway/device transport の設計。
+- Core change candidate?: いいえ。
+- Profile candidate?: いいえ。
+
+## Finding 6: Malformed result
+
+- Observation: `ok` が boolean でない、または成功時の `values` が object でない result は HTTP 400 とし、SQLite row を terminal `failed` に確定する。waiter は timeout ではなく device failure として終了する。
+- Draft 4 ambiguity?: いいえ。HTTP error mapping はこの Lab の Capability API 実装詳細。
+- Implementation-specific?: はい。
+- Core change candidate?: いいえ。
+- Profile candidate?: いいえ。

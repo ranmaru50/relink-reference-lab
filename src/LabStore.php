@@ -165,15 +165,16 @@ final class LabStore
             return (string) $row['status'];
         }
         if (!isset($payload['ok']) || !is_bool($payload['ok'])) {
-            return 'failed';
+            $this->markFailed($commandId, 'malformed result: ok must be boolean');
+            return 'malformed';
         }
 
         $status = $payload['ok'] ? 'completed' : 'failed';
         $values = $payload['values'] ?? null;
         $errorText = $payload['error'] ?? null;
         if ($payload['ok'] && !is_array($values)) {
-            $status = 'failed';
-            $errorText = 'values は object である必要があります';
+            $this->markFailed($commandId, 'malformed result: values must be an object');
+            return 'malformed';
         }
         $update = $this->pdo->prepare(
             'UPDATE commands SET status = :status, result_json = :result_json, ' .
@@ -190,6 +191,20 @@ final class LabStore
             ':id' => $commandId,
         ]);
         return $update->rowCount() === 1 ? 'accepted' : 'completed';
+    }
+
+    /** malformed result を delivered のまま残さず terminal failed にする。 */
+    private function markFailed(string $commandId, string $errorText): void
+    {
+        $update = $this->pdo->prepare(
+            "UPDATE commands SET status = 'failed', error_text = :error_text, " .
+            "completed_at = :completed_at WHERE id = :id AND status = 'delivered'"
+        );
+        $update->execute([
+            ':error_text' => $errorText,
+            ':completed_at' => microtime(true),
+            ':id' => $commandId,
+        ]);
     }
 
     /**

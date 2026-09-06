@@ -31,6 +31,9 @@ try {
     if ($result === 'device_mismatch') {
         lab_json_response(403, ['error' => 'device mismatch']);
     }
+    if ($result === 'malformed') {
+        lab_json_response(400, ['error' => 'malformed device result']);
+    }
     lab_json_response(409, ['error' => 'command is no longer deliverable', 'status' => $result]);
 } catch (InvalidArgumentException | JsonException $error) {
     lab_json_response(400, ['error' => $error->getMessage()]);
