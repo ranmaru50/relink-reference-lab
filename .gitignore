@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+web/vendor/relink-web-runtime.js
+firmware/pico2w/config.py
