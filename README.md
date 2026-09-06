@@ -61,7 +61,9 @@ Resolver は UUID と current AR-XML Description Location の対応だけを扱�
 - Apache 2.4（`mod_rewrite`、`.htaccess` の `AllowOverride FileInfo`）
 - PHP 8.1 以上（PDO、`pdo_sqlite`、JSON）
 - SQLite 3
-- Python 3.11 以上、`uv`（Runtime 取得・補助テスト用）
+- Composer（PHPUnit / PHPStan の導入用）
+- Node.js 20 以上、pnpm（Vitest / ESLint の導入用）
+- Python 3.11 以上、`uv`（Runtime 取得・Apache acceptance 用）
 - Raspberry Pi Pico 2 W、対応 MicroPython
 - Wi-Fi またはスマートフォンのテザリング
 
@@ -155,11 +157,19 @@ GATEWAY_URL = "https://<lab-host>/device"
 ## テスト
 
 ```text
+composer install
+composer test
+composer static-analysis
+pnpm install
+pnpm test
+pnpm lint
 uv run pytest
 uv run ruff check .
 ```
 
-テストは route 配線、AR-XML fixture、PHP CLI が存在する環境での全 PHP lint と SQLite state smoke を対象にします。PHP が存在しない開発環境では PHP lint/smoke は skip されるため、Apache/PHP 環境で必ず実行してください。
+PHP の単体テストは PHPUnit、PHP の静的解析は PHPStan、Web JavaScript の DOM 単体テストは Vitest + jsdom、JavaScript の静的解析は ESLint が担当します。Python の pytest / Ruff は Apache acceptance の配線補助と Runtime 取得スクリプトに限定しています。
+
+PHP/Composer や Node/pnpm がない環境では該当コマンドを実行できないため、CI または各ツールを導入した環境で実行してください。
 
 Apache の実 HTTP route は、Apache を起動した状態で次を実行します。
 

@@ -2,7 +2,7 @@
 
 ## 前提
 
-Lab のサーバー側は Apache 2.4 + PHP 8.1+ + PDO SQLite です。Python は Runtime asset の取得と補助テストだけに使います。Resolver は別サービスとして既存 `relink-resolver` を使います。
+Lab のサーバー側は Apache 2.4 + PHP 8.1+ + PDO SQLite です。Resolver は別サービスとして既存 `relink-resolver` を使います。PHPUnit / PHPStan は Composer、Vitest / ESLint は pnpm で導入します。
 
 ## 初期化
 
@@ -70,6 +70,12 @@ Pico の通信は `GET /commands?device_id=...` と `POST /results/{command_id}`
 ## 確認コマンド
 
 ```text
+composer install
+composer test
+composer static-analysis
+pnpm install
+pnpm test
+pnpm lint
 uv run pytest
 uv run ruff check .
 php -l src/LabStore.php
@@ -80,4 +86,6 @@ php -l public/device/result.php
 uv run python scripts/apache_acceptance.py --base-url https://<lab-host>
 ```
 
-最後の acceptance は Apache を実際に経由し、static AR-XML、`.htaccess` rewrite 後の PHP route、JSON validation、OPTIONS/CORS、empty device polling、malformed result の HTTP status を検証します。Pico が接続している場合は、Web UI の explicit invoke で LED と温度の成功経路も確認します。
+PHPUnit は SQLite command store の状態遷移を単体テストし、PHPStan は `src/`・`public/`・PHPUnit tests を解析します。Vitest は Web UI のロード、explicit invoke、自動実行なし、エラー表示を jsdom でテストし、ESLint は `public/app.js` とテスト/config を解析します。
+
+最後の `apache_acceptance.py` は Apache を実際に経由し、static AR-XML、`.htaccess` rewrite 後の PHP route、JSON validation、OPTIONS/CORS、empty device polling、malformed result の HTTP status を検証します。Pico が接続している場合は、Web UI の explicit invoke で LED と温度の成功経路も確認します。

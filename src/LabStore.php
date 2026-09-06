@@ -183,7 +183,7 @@ final class LabStore
         );
         $update->execute([
             ':status' => $status,
-            ':result_json' => $payload['ok'] && is_array($values)
+            ':result_json' => $payload['ok']
                 ? json_encode($values, JSON_THROW_ON_ERROR)
                 : null,
             ':error_text' => is_string($errorText) ? $errorText : null,

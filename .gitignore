@@ -3,6 +3,11 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+node_modules/
+.pnpm-store/
+coverage/
+vendor/
+.phpunit.result.cache
 public/vendor/relink-web-runtime.js
 web/vendor/relink-web-runtime.js
 firmware/pico2w/config.py

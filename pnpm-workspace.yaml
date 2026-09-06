@@ -1,0 +1,4 @@
+# pnpm-workspace.yaml
+# esbuild は Vitest の変換処理に必要なため、ビルドスクリプトを許可する。
+allowBuilds:
+  esbuild: true
