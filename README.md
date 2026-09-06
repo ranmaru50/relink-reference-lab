@@ -71,6 +71,8 @@ Python はサーバー実行環境ではありません。Lab の Web/Capability
 
 ## セットアップ
 
+Resolver、AR-XML/Webアプリ、Pico 2 Wをまとめて構築する場合は、[統合セットアップ手順](docs/integrated-setup.md)を参照してください。
+
 ### 1. Runtime 0.1.0 を取得
 
 Runtime のソースツリーはコピーせず、公開 standalone ESM asset を SHA-256 検証付きで取得します。
