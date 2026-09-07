@@ -1,0 +1,15 @@
+# public/.htaccess
+# Apache DocumentRoot から PHP endpoint のファイル名を隠す rewrite。
+
+Options -Indexes
+RewriteEngine On
+
+RewriteRule ^api/light/state/?$ api/light-state.php [END,QSA]
+RewriteRule ^api/temperature/?$ api/temperature.php [END,QSA]
+RewriteRule ^device/commands/?$ device/commands.php [END,QSA]
+RewriteRule ^device/results/([a-f0-9]{32})/?$ device/result.php?id=$1 [END,QSA]
+
+# SQLite、設定ファイルは DocumentRoot から直接配信しない。PHP は rewrite の内部転送を許可する。
+<FilesMatch "\.(sqlite|db|ini|log)$">
+    Require all denied
+</FilesMatch>

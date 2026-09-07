@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RELink Pico 2 W Reference Lab</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { max-width: 50rem; margin: 2rem auto; padding: 0 1rem; }
+      button, input { font: inherit; padding: .55rem .7rem; margin: .25rem 0; }
+      button { cursor: pointer; }
+      .panel { border: 1px solid #8886; border-radius: .5rem; padding: 1rem; margin: 1rem 0; }
+      #status { min-height: 1.5rem; white-space: pre-wrap; }
+      .error { color: #c33; }
+      .success { color: #287a3d; }
+    </style>
+  </head>
+  <body>
+    <h1>RELink Pico 2 W Reference Lab</h1>
+    <p>Capability はロード時に実行されません。各操作はボタンを押したときだけ実行されます。</p>
+
+    <section class="panel">
+      <label for="anchor-url">Anchor URL</label><br />
+      <input id="anchor-url" type="url" size="70" value="https://resolver.example/relink/550e8400-e29b-41d4-a716-446655440000" />
+      <br />
+      <button id="load-button">Entity を読み込む</button>
+      <p id="status" role="status" aria-live="polite">Anchor URL を入力してください。</p>
+    </section>
+
+    <section id="entity-panel" class="panel" hidden>
+      <h2 id="entity-title">Entity</h2>
+      <p>Discovered Capabilities: <span id="capability-list"></span></p>
+      <button id="light-on" disabled>LED を ON</button>
+      <button id="light-off" disabled>LED を OFF</button>
+      <button id="temperature-read" disabled>温度を読み取る</button>
+      <pre id="result" aria-live="polite"></pre>
+    </section>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

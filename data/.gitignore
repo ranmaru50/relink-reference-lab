@@ -1,0 +1,4 @@
+# data/.gitignore
+# 実行時の SQLite と WAL/SHM を DocumentRoot 外に保持する。
+*
+!.gitignore

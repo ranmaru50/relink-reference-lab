@@ -1,0 +1,24 @@
+{
+    "name": "ranmaru50/relink-reference-lab",
+    "description": "RELink physical reference lab for Raspberry Pi Pico 2 W",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-pdo_sqlite": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "phpstan/phpstan": "^2.1"
+    },
+    "autoload": {
+        "files": ["src/LabStore.php"]
+    },
+    "scripts": {
+        "test": "phpunit --configuration phpunit.xml.dist",
+        "static-analysis": "phpstan analyse --configuration phpstan.neon.dist"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

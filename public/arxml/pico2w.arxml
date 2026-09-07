@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity xmlns="https://relink.dev/ns/arxml/core/0.1" version="0.1">
+  <category>environment.lab-device</category>
+  <capabilities>
+    <capability
+      id="light"
+      type="https://example.org/capabilities/light/set-state/1">
+      <inputs>
+        <input name="on" type="boolean" required="true" />
+      </inputs>
+      <result>
+        <outputs>
+          <output name="state" type="boolean" />
+        </outputs>
+        <representations>
+          <representation media-type="application/json" />
+        </representations>
+      </result>
+      <interfaces>
+        <interface type="http" method="POST" endpoint="../api/light/state" encoding="json" />
+      </interfaces>
+    </capability>
+    <capability
+      id="temperature"
+      type="https://example.org/capabilities/temperature/read/1">
+      <result>
+        <outputs>
+          <output name="temperature" type="number" unit="Cel" />
+        </outputs>
+        <representations>
+          <representation media-type="application/json" />
+        </representations>
+      </result>
+      <interfaces>
+        <interface type="http" method="GET" endpoint="../api/temperature" />
+      </interfaces>
+    </capability>
+  </capabilities>
+</ar-entity>
