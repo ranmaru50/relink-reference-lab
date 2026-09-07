@@ -1,7 +1,7 @@
 // public/app.js
 // Web Runtime を使って Entity を発見し、ユーザー操作だけで Capability を呼び出す。
 
-import { ARRuntime } from "./vendor/relink-web-runtime.js";
+import { ARRuntime } from "./runtime-loader.js";
 
 const anchorInput = document.querySelector("#anchor-url");
 const loadButton = document.querySelector("#load-button");

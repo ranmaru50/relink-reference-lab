@@ -3,7 +3,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../public/vendor/relink-web-runtime.js", () => ({
+vi.mock("../public/runtime-loader.js", () => ({
   ARRuntime: vi.fn(),
 }));
 
@@ -28,7 +28,7 @@ describe("RELink Web UI", () => {
   beforeEach(async () => {
     document.body.innerHTML = page;
     vi.resetModules();
-    ({ ARRuntime } = await import("../public/vendor/relink-web-runtime.js"));
+    ({ ARRuntime } = await import("../public/runtime-loader.js"));
     ARRuntime.mockReset();
     lightInvoke = vi.fn().mockResolvedValue({ values: { state: true } });
     temperatureInvoke = vi.fn().mockResolvedValue({ values: { temperature: 22.4 } });

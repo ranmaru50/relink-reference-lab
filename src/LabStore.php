@@ -91,6 +91,7 @@ final class LabStore
         $now = microtime(true);
         // 複数の Apache worker が同時に polling しても同じ command を二重配送しない。
         $this->pdo->exec('BEGIN IMMEDIATE');
+        $transactionStarted = true;
         try {
             $expire = $this->pdo->prepare(
                 "UPDATE commands SET status = 'expired', completed_at = :now " .
@@ -110,7 +111,8 @@ final class LabStore
             $select->execute([':device_id' => $deviceId, ':now' => $now]);
             $row = $select->fetch(PDO::FETCH_ASSOC);
             if ($row === false) {
-                $this->pdo->commit();
+                $this->pdo->exec('COMMIT');
+                $transactionStarted = false;
                 return null;
             }
 
@@ -119,10 +121,12 @@ final class LabStore
             );
             $claim->execute([':id' => $row['id']]);
             if ($claim->rowCount() !== 1) {
-                $this->pdo->commit();
+                $this->pdo->exec('COMMIT');
+                $transactionStarted = false;
                 return null;
             }
-            $this->pdo->commit();
+            $this->pdo->exec('COMMIT');
+            $transactionStarted = false;
             $inputs = json_decode((string) $row['inputs_json'], true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($inputs)) {
                 throw new RuntimeException('command inputs が object ではありません');
@@ -135,8 +139,8 @@ final class LabStore
                 'expires_at' => (float) $row['expires_at'],
             ];
         } catch (Throwable $error) {
-            if ($this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
+            if ($transactionStarted) {
+                $this->pdo->exec('ROLLBACK');
             }
             throw $error;
         }
