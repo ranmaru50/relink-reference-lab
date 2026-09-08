@@ -271,8 +271,8 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
 
 | Capability ID | Interface | 相対endpoint | 入力・出力 |
 | --- | --- | --- | --- |
-| `light` | `POST`、JSON | `../api/light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
-| `temperature` | `GET` | `../api/temperature` | 入力なし → `{ "temperature": number }` |
+| `light` | `POST`、JSON | `../api/light/state` | `{ "on": true/false }` → JSON scalar `boolean` |
+| `temperature` | `GET` | `../api/temperature` | 入力なし → JSON scalar `number` |
 
 相対endpointは、Resolver URLではなく**最終的に取得されたAR-XMLのURL**を基準に解決されます。そのため、次の配置では`../api/...`がLabの`/api/...`になります。
 

@@ -35,7 +35,7 @@ function lab_store(): LabStore
 }
 
 /** JSON response と Browser Capability API 用 CORS を返す。 */
-function lab_json_response(int $status, array $payload): never
+function lab_json_response(int $status, mixed $payload): never
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
