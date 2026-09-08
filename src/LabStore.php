@@ -73,7 +73,8 @@ final class LabStore
             ':id' => $commandId,
             ':device_id' => $deviceId,
             ':action' => $action,
-            ':inputs_json' => json_encode($inputs, JSON_THROW_ON_ERROR),
+            // PHP の空配列は JSON 配列になるため、command inputs は常に object として保存する。
+            ':inputs_json' => json_encode((object) $inputs, JSON_THROW_ON_ERROR),
             ':created_at' => $now,
             ':expires_at' => $expiresAt,
         ]);
@@ -84,7 +85,7 @@ final class LabStore
      * queued command を一件だけ delivered に遷移させて返す。
      * expired な command は Pico へ渡さず、同じ transaction で廃棄する。
      *
-     * @return array{id: string, device_id: string, action: string, inputs: array<string, mixed>, expires_at: float}|null
+     * @return array{id: string, device_id: string, action: string, inputs: \stdClass, expires_at: float}|null
      */
     public function claimNext(string $deviceId): ?array
     {
@@ -127,8 +128,12 @@ final class LabStore
             }
             $this->pdo->exec('COMMIT');
             $transactionStarted = false;
-            $inputs = json_decode((string) $row['inputs_json'], true, 512, JSON_THROW_ON_ERROR);
-            if (!is_array($inputs)) {
+            $inputs = json_decode((string) $row['inputs_json'], false, 512, JSON_THROW_ON_ERROR);
+            // 更新前に保存された空配列も、デバイスへは空 object として互換配送する。
+            if (is_array($inputs) && $inputs === []) {
+                $inputs = new \stdClass();
+            }
+            if (!$inputs instanceof \stdClass) {
                 throw new RuntimeException('command inputs が object ではありません');
             }
             return [

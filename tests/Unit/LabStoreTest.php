@@ -47,11 +47,23 @@ final class LabStoreTest extends TestCase
         self::assertNotNull($command);
         self::assertSame($commandId, $command['id']);
         self::assertSame('light.setState', $command['action']);
+        self::assertSame('{"on":true}', json_encode($command['inputs'], JSON_THROW_ON_ERROR));
         self::assertSame('accepted', $this->store->complete($commandId, 'pico2w-01', [
             'ok' => true,
             'values' => ['state' => true],
         ]));
         self::assertSame(['state' => true], $this->store->waitForResult($commandId, 1));
+    }
+
+    /** 引数なし command の inputs が JSON object として配送されることを確認する。 */
+    public function testSerializesEmptyInputsAsObject(): void
+    {
+        $this->store->enqueue('pico2w-01', 'temperature.read', [], 2);
+        $command = $this->store->claimNext('pico2w-01');
+
+        self::assertNotNull($command);
+        self::assertInstanceOf(\stdClass::class, $command['inputs']);
+        self::assertSame('{}', json_encode($command['inputs'], JSON_THROW_ON_ERROR));
     }
 
     /** 有効期限を過ぎた queued command をデバイスへ配送しないことを確認する。 */
