@@ -223,8 +223,8 @@ The fixture `public/arxml/pico2w.arxml` defines:
 
 | Capability ID | Interface | Relative endpoint | Input/output |
 | --- | --- | --- | --- |
-| `light` | `POST`, JSON | `../api/light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
-| `temperature` | `GET` | `../api/temperature` | no input → `{ "temperature": number }` |
+| `light` | `POST`、JSON | `../api/light/state` | `{ "on": true/false }` → JSON scalar `boolean` |
+| `temperature` | `GET` | `../api/temperature` | 入力なし → JSON scalar `number` |
 
 Relative endpoints use the **final fetched AR-XML URL**, not the Resolver URL. With the example placement, `../api/...` resolves to the Lab API. Do not put the Pico `/device/commands` or `/device/results` routes in AR-XML; they are internal command-store traffic.
 

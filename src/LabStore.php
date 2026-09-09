@@ -52,13 +52,13 @@ final class LabStore
      *
      * @param string $deviceId 対象 Pico の固定 device ID。
      * @param string $action AR-XML から公開された lab action。
-     * @param array<string, mixed> $inputs 入力値。
+     * @param array<string, mixed>|stdClass $inputs 入力値。JSON では object として配送する。
      * @param float $timeoutSeconds command の有効時間。
      */
     public function enqueue(
         string $deviceId,
         string $action,
-        array $inputs,
+        array|stdClass $inputs,
         float $timeoutSeconds
     ): string {
         $commandId = bin2hex(random_bytes(16));
@@ -73,7 +73,11 @@ final class LabStore
             ':id' => $commandId,
             ':device_id' => $deviceId,
             ':action' => $action,
-            ':inputs_json' => json_encode($inputs, JSON_THROW_ON_ERROR),
+            // PHP の空配列は JSON 配列になるため、command 入力は常に object として保存する。
+            ':inputs_json' => json_encode(
+                $inputs instanceof stdClass ? $inputs : (object) $inputs,
+                JSON_THROW_ON_ERROR
+            ),
             ':created_at' => $now,
             ':expires_at' => $expiresAt,
         ]);
@@ -84,7 +88,7 @@ final class LabStore
      * queued command を一件だけ delivered に遷移させて返す。
      * expired な command は Pico へ渡さず、同じ transaction で廃棄する。
      *
-     * @return array{id: string, device_id: string, action: string, inputs: array<string, mixed>, expires_at: float}|null
+     * @return array{id: string, device_id: string, action: string, inputs: stdClass, expires_at: float}|null
      */
     public function claimNext(string $deviceId): ?array
     {
@@ -127,8 +131,8 @@ final class LabStore
             }
             $this->pdo->exec('COMMIT');
             $transactionStarted = false;
-            $inputs = json_decode((string) $row['inputs_json'], true, 512, JSON_THROW_ON_ERROR);
-            if (!is_array($inputs)) {
+            $inputs = json_decode((string) $row['inputs_json'], false, 512, JSON_THROW_ON_ERROR);
+            if (!$inputs instanceof stdClass) {
                 throw new RuntimeException('command inputs が object ではありません');
             }
             return [

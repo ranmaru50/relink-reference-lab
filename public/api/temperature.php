@@ -20,7 +20,12 @@ try {
         $config['timeout_seconds']
     );
     $values = lab_store()->waitForResult($commandId, $config['timeout_seconds']);
-    lab_json_response(200, $values);
+    $temperature = $values['temperature'] ?? null;
+    if (!is_int($temperature) && !is_float($temperature)) {
+        throw new LabStoreCommandFailed('device result temperature が number ではありません');
+    }
+    // Web Runtime の単一 Output 契約に合わせ、成功値は JSON scalar で返す。
+    lab_json_response(200, $temperature);
 } catch (LabStoreTimeout $error) {
     lab_json_response(504, ['error' => $error->getMessage()]);
 } catch (LabStoreCommandFailed $error) {

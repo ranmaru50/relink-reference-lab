@@ -24,7 +24,12 @@ try {
         $config['timeout_seconds']
     );
     $values = lab_store()->waitForResult($commandId, $config['timeout_seconds']);
-    lab_json_response(200, $values);
+    $state = $values['state'] ?? null;
+    if (!is_bool($state)) {
+        throw new LabStoreCommandFailed('device result state が boolean ではありません');
+    }
+    // Web Runtime の単一 Output 契約に合わせ、成功値は JSON scalar で返す。
+    lab_json_response(200, $state);
 } catch (InvalidArgumentException | JsonException $error) {
     lab_json_response(400, ['error' => $error->getMessage()]);
 } catch (LabStoreTimeout $error) {
