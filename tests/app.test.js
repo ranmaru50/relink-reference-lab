@@ -8,8 +8,9 @@ vi.mock("../public/runtime-loader.js", () => ({
 }));
 
 const page = `
+  <select id="language-select"><option value="en">English</option><option value="ja">日本語</option></select>
   <input id="anchor-url" value="/relink/test" />
-  <button id="load-button"></button>
+  <button id="load-button" data-i18n="loadEntity"></button>
   <p id="status"></p>
   <section id="entity-panel" hidden></section>
   <h2 id="entity-title"></h2>
@@ -26,6 +27,7 @@ describe("RELink Web UI", () => {
   let temperatureInvoke;
 
   beforeEach(async () => {
+    window.localStorage.clear();
     document.body.innerHTML = page;
     vi.resetModules();
     ({ ARRuntime } = await import("../public/runtime-loader.js"));
@@ -50,7 +52,7 @@ describe("RELink Web UI", () => {
 
   it("loads capabilities without invoking one automatically", async () => {
     document.querySelector("#load-button").click();
-    await vi.waitFor(() => expect(document.querySelector("#status").textContent).toContain("ロード成功"));
+    await vi.waitFor(() => expect(document.querySelector("#status").textContent).toContain("Load succeeded"));
 
     expect(document.querySelector("#capability-list").textContent).toBe("light, temperature");
     expect(lightInvoke).not.toHaveBeenCalled();
@@ -74,5 +76,15 @@ describe("RELink Web UI", () => {
 
     await vi.waitFor(() => expect(document.querySelector("#status").className).toBe("error"));
     expect(document.querySelector("#status").textContent).toContain("network down");
+  });
+
+  it("switches fixed and dynamic messages to Japanese", async () => {
+    document.querySelector("#language-select").value = "ja";
+    document.querySelector("#language-select").dispatchEvent(new Event("change"));
+
+    expect(document.documentElement.lang).toBe("ja");
+    document.querySelector("#load-button").click();
+    await vi.waitFor(() => expect(document.querySelector("#status").textContent).toContain("ロード成功"));
+    expect(document.querySelector("#load-button").textContent).toBe("Entityを読み込む");
   });
 });

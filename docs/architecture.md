@@ -1,6 +1,8 @@
-# アーキテクチャ
+# Architecture
 
-## 責務分離
+[日本語版](architecture.ja.md)
+
+## Separation of responsibilities
 
 ```text
 Discovery / Description plane
@@ -21,24 +23,24 @@ Human → Web App → PHP Capability API
               Pico outbound polling
 ```
 
-Resolver Core は UUID から current Description Location を返すだけです。Lab 内に `/relink/{uuid}` の Resolver 実装はありません。Resolver は AR-XML、Gateway、Pico の IP、Capability API を知りません。
+Resolver Core only returns the current Description Location for a UUID. This lab does not implement `/relink/{uuid}`. Resolver does not know the AR-XML, Gateway, Pico IP address, or Capability API.
 
-## Lab の公開面
+## Public Lab surface
 
-| 公開 route | PHP 実装 | 役割 |
+| Public route | PHP implementation | Purpose |
 | --- | --- | --- |
-| `/` | `public/index.html` | 人間が操作する UI |
-| `/arxml/pico2w.arxml` | 静的ファイル | Entity / Capability / Interface の宣言 |
-| `/api/light/state` | `public/api/light-state.php` | boolean を enqueue し JSON result を返す |
-| `/api/temperature` | `public/api/temperature.php` | temperature command を enqueue し JSON result を返す |
-| `/device/commands` | `public/device/commands.php` | Pico が次の command を取得 |
-| `/device/results/{id}` | `public/device/result.php` | Pico の result を相関保存 |
+| `/` | `public/index.html` | Human-operated Web UI |
+| `/arxml/pico2w.arxml` | Static file | Entity, Capability, and Interface declarations |
+| `/api/light/state` | `public/api/light-state.php` | Enqueue a boolean and return the JSON result |
+| `/api/temperature` | `public/api/temperature.php` | Enqueue a temperature command and return the JSON result |
+| `/device/commands` | `public/device/commands.php` | Let the Pico claim its next command |
+| `/device/results/{id}` | `public/device/result.php` | Correlate and store the Pico result |
 
-`.htaccess` は Web の route を PHP ファイルへ rewrite します。AR-XML と Web UI に PHP ファイル名を記述しません。
+`.htaccess` rewrites Web routes to PHP files. PHP filenames are not exposed in the AR-XML or Web UI.
 
 ## SQLite command state
 
-`src/LabStore.php` は DocumentRoot 外の `data/lab.sqlite` を共有します。
+`src/LabStore.php` shares `data/lab.sqlite` outside the DocumentRoot.
 
 ```text
 queued → delivered → completed
@@ -46,14 +48,14 @@ queued → delivered → completed
 queued/delivered ───→ expired
 ```
 
-各 row は `id`、`device_id`、`action`、`inputs_json`、`status`、`result_json`、`error_text`、`created_at`、`expires_at`、`completed_at` を保持します。`claimNext()` は transaction 内で expired queued row を先に廃棄し、未期限の command だけを delivered に変更します。Capability API は短い bounded wait 後に 504 を返し、timeout 時には queued/delivered row を expired にします。
+Each row stores `id`, `device_id`, `action`, `inputs_json`, `status`, `result_json`, `error_text`, `created_at`, `expires_at`, and `completed_at`. `claimNext()` discards expired queued rows inside a transaction and delivers only unexpired commands. The Capability API returns 504 after a short bounded wait and expires queued or delivered rows on timeout.
 
-同じ command ID の result は一度しか受け付けず、device ID が異なる result は拒否します。認証ではないため、公開運用時の認証・認可は別途必要です。
+Only one result is accepted for a command ID, and a result from another device ID is rejected. This is not authentication; production deployments need separate authentication and authorization.
 
 ## Pico session
 
-Pico は inbound port を開かず、Lab へ polling します。command はこのラボで定義した `light.setState` と `temperature.read` だけです。result POST の HTTP status が 200 以外なら例外として扱い、外側の reconnect/backoff へ戻ります。Wi-Fi 接続も固定時間で打ち切り、永久待機しません。
+The Pico does not open an inbound port. It polls the Lab. The only commands defined by this lab are `light.setState` and `temperature.read`. Any result POST other than HTTP 200 is treated as an error and returns to reconnect/backoff. Wi-Fi connection attempts also have a fixed timeout.
 
 ## Security boundary
 
-L1 の `303`、Anchor UUID、HTTPS は Entity、所有者、AR-XML、Capability の真正性・認証・認可・安全性を証明しません。Resolver と Lab の HTTPS/CORS は独立しています。PHP endpoint には本番認証を追加していないため、公開前に前段の認証・認可、TLS、レート制限、監視を設計してください。
+L1 `303`, Anchor UUIDs, and HTTPS do not prove Entity ownership, AR-XML or Capability authenticity, authentication, authorization, or safety. Resolver HTTPS/CORS and Lab HTTPS/CORS are independent. The PHP endpoints do not include production authentication; design upstream authentication/authorization, TLS, rate limiting, and monitoring before public deployment.

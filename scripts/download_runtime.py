@@ -25,7 +25,7 @@ def download_runtime() -> Path:
 
     digest = hashlib.sha256(content).hexdigest()
     if digest != RUNTIME_SHA256:
-        raise RuntimeError(f"Runtime の SHA-256 が一致しません: {digest}")
+        raise RuntimeError(f"Runtime SHA-256 mismatch: {digest}")
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_bytes(content)
@@ -37,10 +37,10 @@ def main() -> int:
     try:
         output_path = download_runtime()
     except Exception as error:  # noqa: BLE001 - CLI では原因を表示して失敗させる
-        print(f"Runtime の取得に失敗しました: {error}", file=sys.stderr)
+        print(f"Failed to download Runtime: {error}", file=sys.stderr)
         return 1
 
-    print(f"Runtime 0.1.0 を取得しました: {output_path}")
+    print(f"Downloaded Runtime 0.1.0: {output_path}")
     return 0
 
 

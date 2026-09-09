@@ -1,51 +1,53 @@
 # Findings
 
-実装時の観察を、Draft 4 の意味拡張と混同しないよう分類します。
+[日本語版](findings.ja.md)
 
-## Finding 1: 相対 Interface endpoint
+These implementation observations are classified so they are not confused with semantic extensions to Draft 4.
 
-- Observation: `/public/arxml/pico2w.arxml` から `../api/light/state` と `../api/temperature` を解決すると、最終 AR-XML URL と同じ Lab origin の Capability API になる。
-- Draft 4 ambiguity?: いいえ。相対 URL は最終 AR-XML document URL を base にする。
-- Implementation-specific?: Apache の DocumentRoot と route 配置はこの Lab 固有。
-- Core change candidate?: いいえ。
-- Profile candidate?: いいえ。
+## Finding 1: Relative Interface endpoint
 
-## Finding 2: 共有 command state
+- Observation: Resolving `../api/light/state` and `../api/temperature` from `/public/arxml/pico2w.arxml` produces Capability API URLs on the same Lab origin as the final AR-XML URL.
+- Draft 4 ambiguity?: No. Relative URLs use the final AR-XML document URL as their base.
+- Implementation-specific?: Yes. The Apache DocumentRoot and route layout belong to this lab.
+- Core change candidate?: No.
+- Profile candidate?: No.
 
-- Observation: Apache + PHP では worker を跨ぐため、command queue と result correlation を SQLite に置く必要がある。`queued → delivered → completed/failed/expired` を transaction で保存する。
-- Draft 4 ambiguity?: いいえ。Gateway/device-session transport は AR-XML の外側の実装詳細。
-- Implementation-specific?: はい。
-- Core change candidate?: いいえ。
-- Profile candidate?: いいえ。
+## Finding 2: Shared command state
+
+- Observation: Apache + PHP workers need SQLite for command queue and result correlation across workers. The state is stored as `queued → delivered → completed/failed/expired` in transactions.
+- Draft 4 ambiguity?: No. Gateway/device-session transport is outside AR-XML.
+- Implementation-specific?: Yes.
+- Core change candidate?: No.
+- Profile candidate?: No.
 
 ## Finding 3: Command expiry
 
-- Observation: Capability API の bounded wait 後は command を expired にし、Pico の claim transaction でも期限切れ queued row を配送しない。これにより 504 後に未配送の古い物理 command が実行されることを防ぐ。
-- Draft 4 ambiguity?: いいえ。
-- Implementation-specific?: はい。デバイスがすでに delivered command を実行中の場合の cancellation semantics は別途必要。
-- Core change candidate?: いいえ。
-- Profile candidate?: いいえ。必要なら device transport 運用仕様で扱う。
+- Observation: The Capability API expires a command after its bounded wait, and the Pico claim transaction does not deliver expired queued rows. This prevents an old undelivered physical command from running after a 504.
+- Draft 4 ambiguity?: No.
+- Implementation-specific?: Yes. Cancellation semantics for an already delivered command are separate.
+- Core change candidate?: No.
+- Profile candidate?: No. If needed, handle it in device-transport operations.
 
 ## Finding 4: MicroPython TLS/CA
 
-- Observation: `urequests` と firmware ごとの CA 検証、SNI、timeout、メモリ制約はこの環境で物理検証していない。
-- Draft 4 ambiguity?: いいえ。TLS は既存 Web 基盤とデバイス実行環境の責任。
-- Implementation-specific?: はい。
-- Core change candidate?: いいえ。
-- Profile candidate?: いいえ。デプロイメント受け入れで確認する。
+- Observation: The CA validation, SNI, timeout, and memory constraints of `urequests` and each firmware combination have not been physically validated in this environment.
+- Draft 4 ambiguity?: No. TLS belongs to the existing Web platform and device runtime.
+- Implementation-specific?: Yes.
+- Core change candidate?: No.
+- Profile candidate?: No. Verify it during deployment acceptance.
 
-## Finding 5: Result callback 喪失
+## Finding 5: Lost result callback
 
-- Observation: Pico が物理 command を実行した後に result POST を失うと、Gateway は API caller へ 504 を返し得る一方、物理 side effect は既に発生している。`delivered` command は再配送しないため、Lab v0.1 は at-most-once 寄りの ambiguous outcome になる。
-- Draft 4 ambiguity?: いいえ。Capability transport の delivery guarantee は Core の外側。
-- Implementation-specific?: はい。再試行、冪等キー、device acknowledgement を追加する場合は Gateway/device transport の設計。
-- Core change candidate?: いいえ。
-- Profile candidate?: いいえ。
+- Observation: If the Pico loses the result POST after executing a physical command, the Gateway may return 504 even though the physical side effect occurred. Delivered commands are not redelivered, so Lab v0.1 has an ambiguous outcome close to at-most-once delivery.
+- Draft 4 ambiguity?: No. Capability delivery guarantees are outside Core.
+- Implementation-specific?: Yes. Retries, idempotency keys, and device acknowledgements belong in Gateway/device transport design.
+- Core change candidate?: No.
+- Profile candidate?: No.
 
 ## Finding 6: Malformed result
 
-- Observation: `ok` が boolean でない、または成功時の `values` が object でない result は HTTP 400 とし、SQLite row を terminal `failed` に確定する。waiter は timeout ではなく device failure として終了する。
-- Draft 4 ambiguity?: いいえ。HTTP error mapping はこの Lab の Capability API 実装詳細。
-- Implementation-specific?: はい。
-- Core change candidate?: いいえ。
-- Profile candidate?: いいえ。
+- Observation: A result whose `ok` is not boolean, or whose successful `values` is not an object, receives HTTP 400 and permanently becomes `failed` in SQLite. The waiter ends as a device failure rather than a timeout.
+- Draft 4 ambiguity?: No. HTTP error mapping is an implementation detail of this lab's Capability API.
+- Implementation-specific?: Yes.
+- Core change candidate?: No.
+- Profile candidate?: No.

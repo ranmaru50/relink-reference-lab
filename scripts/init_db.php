@@ -8,4 +8,4 @@ require_once dirname(__DIR__) . '/src/bootstrap.php';
 
 $config = lab_config();
 new LabStore($config['database_path']);
-echo "SQLite を初期化しました: {$config['database_path']}\n";
+echo "SQLite initialized: {$config['database_path']}\n";
