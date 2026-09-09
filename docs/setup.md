@@ -1,24 +1,26 @@
-# Apache + PHP + SQLite セットアップ
+# Apache + PHP + SQLite setup
 
-## 前提
+[日本語版](setup.ja.md)
 
-Lab のサーバー側は Apache 2.4 + PHP 8.1+ + PDO SQLite です。Resolver は別サービスとして既存 `relink-resolver` を使います。PHPUnit / PHPStan は Composer、Vitest / ESLint は pnpm で導入します。
+## Prerequisites
 
-## 初期化
+The Lab server uses Apache 2.4, PHP 8.1+, and PDO SQLite. The existing `relink-resolver` runs as a separate service. Composer installs PHPUnit/PHPStan; pnpm installs Vitest/ESLint.
 
-1. Runtime を取得する。
+## Initialize the Lab
+
+1. Download the pinned Runtime asset:
 
    ```text
    uv run python scripts/download_runtime.py
    ```
 
-2. `pdo_sqlite` が有効な PHP で DB を作る。
+2. Create the database with PHP and `pdo_sqlite`:
 
    ```text
    php scripts/init_db.php
    ```
 
-3. Apache の DocumentRoot を `public/` に設定する。`data/` は DocumentRoot 外に残す。
+3. Set the Apache DocumentRoot to `public/`, keep `data/` outside it, and enable overrides:
 
    ```apache
    <Directory "<checkout>/public">
@@ -27,47 +29,47 @@ Lab のサーバー側は Apache 2.4 + PHP 8.1+ + PDO SQLite です。Resolver �
    </Directory>
    ```
 
-4. PHP/FPM から `data/lab.sqlite` を読み書きできるようにする。別パスの場合は `LAB_DB_PATH` を初期化時と実行時で一致させる。
+4. Let PHP/FPM read and write `data/lab.sqlite`. If another path is used, use the same `LAB_DB_PATH` during initialization and runtime.
 
-5. `public/.htaccess` の `mod_rewrite` を有効にする。
+5. Enable `mod_rewrite` for `public/.htaccess`.
 
-## Resolver の登録
+## Register the Resolver
 
-既存 Resolver の管理面で、次を ACTIVE record として登録します。
+In the existing Resolver administration interface, register an ACTIVE record:
 
 ```text
 UUID: 550e8400-e29b-41d4-a716-446655440000
 Description Location: https://<lab-host>/arxml/pico2w.arxml
 ```
 
-公開 Anchor は次の Resolver URL です。
+The public Anchor URL is:
 
 ```text
 https://<resolver-host>/relink/550e8400-e29b-41d4-a716-446655440000
 ```
 
-この Lab は `/relink/{uuid}` を提供しません。Resolver が返す `303 Location` と static AR-XML がそれぞれ HTTPS で取得できることを確認します。
+This lab does not provide `/relink/{uuid}`. Verify that the Resolver's `303 Location` and the static AR-XML are both reachable over HTTPS.
 
-## 公開 HTTPS
+## Public HTTPS
 
-Lab の Apache 自体、または通常の HTTPS hosting / reverse proxy で TLS を終端します。`public/arxml/pico2w.arxml` と PHP API の CORS はブラウザー実行に必要な範囲で設定しています。Resolver の CORS と AR-XML の CORS は別々に確認してください。
+Terminate TLS in Apache or a normal HTTPS hosting/reverse-proxy service. CORS for `public/arxml/pico2w.arxml` and the PHP API is configured for browser execution, but Resolver CORS and Lab/AR-XML CORS must be checked independently.
 
-カスタムドメインは不要です。プロバイダーが提供する HTTPS endpoint で構いません。HTTPS の証明書・DNS・proxy header は Web インフラの責務であり、RELink Resolver / AR-XML semantics には含まれません。
+No custom domain is required; a provider HTTPS endpoint is sufficient. Certificates, DNS, and proxy headers belong to the Web infrastructure, not to RELink Resolver or AR-XML semantics.
 
-## Pico 設定
+## Configure the Pico
 
-`firmware/pico2w/config.example.py` を `config.py` として Pico にコピーします。
+Copy `firmware/pico2w/config.example.py` to `config.py` on the Pico:
 
 ```python
 DEVICE_ID = "pico2w-01"
 GATEWAY_URL = "https://<lab-host>/device"
 ```
 
-Pico の通信は `GET /commands?device_id=...` と `POST /results/{command_id}` です。Gateway の設定 `DEVICE_ID` と一致させます。
+The Pico uses `GET /commands?device_id=...` and `POST /results/{command_id}`. Its `DEVICE_ID` must match the Gateway configuration.
 
-このリポジトリでは MicroPython の firmware、`urequests`、CA bundle の組み合わせを実機で検証していません。TLS の証明書検証、SNI、タイムアウト、メモリ使用量を実機で確認してから公開してください。
+This repository has not physically validated every MicroPython firmware, `urequests`, and CA-bundle combination. Verify TLS certificate validation, SNI, timeouts, and memory usage on the device before deployment.
 
-## 確認コマンド
+## Verification commands
 
 ```text
 composer install
@@ -86,6 +88,4 @@ php -l public/device/result.php
 uv run python scripts/apache_acceptance.py --base-url https://<lab-host>
 ```
 
-PHPUnit は SQLite command store の状態遷移を単体テストし、PHPStan は `src/`・`public/`・PHPUnit tests を解析します。Vitest は Web UI のロード、explicit invoke、自動実行なし、エラー表示を jsdom でテストし、ESLint は `public/app.js` とテスト/config を解析します。
-
-最後の `apache_acceptance.py` は Apache を実際に経由し、static AR-XML、`.htaccess` rewrite 後の PHP route、JSON validation、OPTIONS/CORS、empty device polling、malformed result の HTTP status を検証します。Pico が接続している場合は、Web UI の explicit invoke で LED と温度の成功経路も確認します。
+PHPUnit covers SQLite command-store transitions, PHPStan checks PHP sources and tests, Vitest covers Web UI load, explicit invoke, no automatic execution, and error display, and ESLint checks the JavaScript. The final acceptance script exercises the real Apache route, static AR-XML, rewrite, JSON validation, OPTIONS/CORS, empty polling, and malformed-result HTTP status.

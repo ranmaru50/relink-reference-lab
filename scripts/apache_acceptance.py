@@ -1,5 +1,5 @@
 # scripts/apache_acceptance.py
-"""Apache 上で Lab の実 HTTP route と基本 response を確認する acceptance。"""
+"""Validate the Lab's live Apache routes and basic HTTP responses."""
 
 from __future__ import annotations
 
@@ -42,10 +42,10 @@ def expect(response, status: int, label: str):
 
 
 def run(base_url: str, device_id: str) -> None:
-    """Apache route、JSON error、CORS、empty polling response を確認する。"""
+    """Validate Apache routes, JSON errors, CORS, and empty polling responses."""
     arxml = expect(request(base_url, "/arxml/pico2w.arxml"), 200, "AR-XML")
     if "ar-entity" not in arxml.read().decode("utf-8"):
-        raise RuntimeError("AR-XML body が不正です")
+        raise RuntimeError("AR-XML body is invalid")
 
     invalid_light = expect(
         request(base_url, "/api/light/state", "POST", {"on": "true"}),
@@ -53,7 +53,7 @@ def run(base_url: str, device_id: str) -> None:
         "light input validation",
     )
     if invalid_light.headers.get("Access-Control-Allow-Origin") != "*":
-        raise RuntimeError("Capability API の CORS header がありません")
+        raise RuntimeError("Capability API is missing the CORS header")
 
     expect(request(base_url, "/api/temperature", "OPTIONS"), 204, "temperature preflight")
     expect(
@@ -69,10 +69,10 @@ def run(base_url: str, device_id: str) -> None:
 
 
 def main() -> int:
-    """CLI 引数を読み、acceptance の終了コードを返す。"""
+    """Parse CLI arguments and return the acceptance exit code."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", required=True, help="Apache で公開した Lab URL")
-    parser.add_argument("--device-id", default="pico2w-01")
+    parser.add_argument("--base-url", required=True, help="Lab URL served by Apache")
+    parser.add_argument("--device-id", default="pico2w-01", help="Configured Pico device ID")
     args = parser.parse_args()
     try:
         run(args.base_url, args.device_id)

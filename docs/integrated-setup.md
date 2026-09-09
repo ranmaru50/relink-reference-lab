@@ -1,175 +1,133 @@
-# RELink Pico 2 W 統合セットアップ手順
+# RELink Pico 2 W integrated setup
 
-この文書は、次の3リポジトリを組み合わせて、Pico 2 W の物理 Entity をブラウザーから操作するまでの手順をまとめたものです。
+[日本語版](integrated-setup.ja.md)
 
-- [relink-resolver](https://github.com/ranmaru50/relink-resolver): Anchor UUID から AR-XML の場所へ解決するサーバー
-- [relink-web-runtime](https://github.com/ranmaru50/relink-web-runtime): AR-XML を読み込み、Capability を解釈・実行するブラウザー Runtime
-- [relink-reference-lab](https://github.com/ranmaru50/relink-reference-lab): AR-XML、Webアプリ、PHP Capability API、Pico用ファームウェア
+This guide combines three repositories so a physical Pico 2 W Entity can be operated from a browser:
 
-この手順は実験用・参照用です。本番環境では、TLS証明書、管理面のアクセス制御、秘密情報の保管、バックアップ、Pico実機の証明書検証を別途確認してください。
+- [relink-resolver](https://github.com/ranmaru50/relink-resolver): resolves an Anchor UUID to an AR-XML location.
+- [relink-web-runtime](https://github.com/ranmaru50/relink-web-runtime): loads AR-XML and interprets/invokes Capabilities in the browser.
+- [relink-reference-lab](https://github.com/ranmaru50/relink-reference-lab): supplies the AR-XML, Web app, PHP Capability API, and Pico firmware.
 
-## 1. 完成後の構成
+This is an experimental reference setup. Before production use, separately verify TLS certificates, administration access control, secret storage, backups, and certificate validation on real Pico hardware.
 
-ホスト名は例です。実際のDNS名に置き換えてください。
+## 1. Target topology
+
+Replace example hostnames with real DNS names.
 
 ```text
-ブラウザー
-    │ Anchor URL を load
+Browser
+    │ load Anchor URL
     ▼
 Resolver: https://resolver.example/relink/{uuid}
     │ 303 See Other
     ▼
 Lab: https://lab.example/arxml/pico2w.arxml
-    │ AR-XML の相対 endpoint を解決
+    │ resolve relative AR-XML endpoints
     ▼
-Webアプリ: Capability invoke
-    │ POST /api/light/state または GET /api/temperature
+Web app: Capability invoke
+    │ POST /api/light/state or GET /api/temperature
     ▼
 Lab PHP + SQLite command store
     ▲
     │ GET /device/commands?device_id=... / POST /device/results/{id}
-    │ Picoからの outbound-only HTTPS polling
+    │ outbound-only HTTPS polling from the Pico
     │
-Pico 2 W: LED操作・RP2350内部温度読み取り
+Pico 2 W: LED control and RP2350 internal-temperature reading
 ```
 
-ResolverはAR-XMLを解釈せず、Capabilityも実行しません。Resolverの公開L1は、登録されたACTIVEレコードのDescription Locationへ`303 See Other`を返します。AR-XMLの解釈とCapabilityの実行は、Web RuntimeとLabの責務です。
+Resolver does not interpret AR-XML or execute Capabilities. Its public L1 endpoint returns `303 See Other` to the registered ACTIVE Description Location. AR-XML interpretation and Capability execution belong to Web Runtime and this Lab.
 
-## 2. 事前に用意するもの
+## 2. Prerequisites
 
-### サーバー
+### Server
 
-- Linuxサーバー（Native profile）またはDocker Composeを実行できるホスト
-- Apache 2.4
-- PHP 8.3以上、`pdo_sqlite`、Composer、SQLite CLI
-- HTTPSのDNS名と証明書
-- `relink-resolver`用ホストと、Lab用ホストまたはVirtualHost
-- Git、Node.js 20以上、pnpm、Python 3.11以上、uv
+- A Linux host for a native installation or a host that can run Docker Compose.
+- Apache 2.4; PHP 8.3+ with `pdo_sqlite`; Composer; SQLite CLI.
+- An HTTPS DNS name and certificate.
+- Separate Resolver and Lab hosts or VirtualHosts.
+- Git, Node.js 20+, pnpm, Python 3.11+, and uv.
 
-### デバイス
+### Device
 
-- Raspberry Pi Pico 2 W
-- 対応するMicroPython
-- Wi-Fiまたはスマートフォンのテザリング
-- PicoからLabのHTTPS endpointへ接続できるネットワーク
+- Raspberry Pi Pico 2 W with compatible MicroPython.
+- Wi-Fi or phone tethering.
+- Network access from the Pico to the Lab HTTPS endpoint.
 
-### URLの割り当て例
+### Example URL allocation
 
-| 役割 | URL例 |
+| Role | Example URL |
 | --- | --- |
-| Resolver公開URL | `https://resolver.example/relink/{uuid}` |
-| Resolver管理画面 | `https://resolver.example/admin.php` |
-| Lab Webアプリ | `https://lab.example/` |
+| Resolver public URL | `https://resolver.example/relink/{uuid}` |
+| Resolver administration | `https://resolver.example/admin.php` |
+| Lab Web app | `https://lab.example/` |
 | Lab AR-XML | `https://lab.example/arxml/pico2w.arxml` |
 | Pico command base URL | `https://lab.example/device` |
 
-## 3. Resolverサーバーの設定
+## 3. Configure the Resolver
 
-ここでは、ResolverをLabとは別サービスとして配置します。ResolverのNative/Container profile、環境変数、管理面、SQLite migrationの詳細は、参照先の[Reference Resolver実装ガイド](https://github.com/ranmaru50/relink-resolver/blob/main/docs/implementation.md)を基準にしてください。
+Run the Resolver as a separate service. Use its [implementation guide](https://github.com/ranmaru50/relink-resolver/blob/main/docs/implementation.md) for profile, environment, administration, and SQLite migration details.
 
-### 3.1 Native profileでインストールする場合
+### Native profile
 
-1. ResolverをDocumentRoot外へ取得します。
+Clone the Resolver outside the DocumentRoot and prepare its environment:
 
-   ```bash
-   sudo mkdir -p /var/www
-   sudo git clone https://github.com/ranmaru50/relink-resolver.git /var/www/relink-resolver
-   cd /var/www/relink-resolver
-   ```
+```bash
+sudo mkdir -p /var/www
+sudo git clone https://github.com/ranmaru50/relink-resolver.git /var/www/relink-resolver
+cd /var/www/relink-resolver
+sudo cp .env.example .env
+sudo chmod 600 .env
+sudoedit .env
+```
 
-2. `.env.example`をコピーし、本番用の管理者情報とデータ保存先を設定します。`.env`はコミットせず、管理者パスワードはSecret管理または適切なファイル権限で保護します。
+At minimum, set production values such as:
 
-   ```bash
-   sudo cp .env.example .env
-   sudo chmod 600 .env
-   sudoedit .env
-   ```
+```dotenv
+RELINK_ENV=production
+RELINK_ADMIN_USERNAME=resolver-admin
+RELINK_ADMIN_PASSWORD=<strong-secret>
+RELINK_DATA_DIR=/var/lib/relink-resolver
+RELINK_SERVICE_PREFIX=/relink
+```
 
-   最低限、次の値を本番用に変更します。
+When using a TLS-terminating proxy, configure only its source CIDRs in `RELINK_TRUSTED_PROXY_CIDRS` and sanitize `X-Forwarded-Proto` and one `X-Forwarded-For` value at the proxy. Do not enable `RELINK_ADMIN_ALLOW_HTTP=1` in production.
 
-   ```dotenv
-   RELINK_ENV=production
-   RELINK_ADMIN_USERNAME=resolver-admin
-   RELINK_ADMIN_PASSWORD=<十分に強い秘密情報>
-   RELINK_DATA_DIR=/var/lib/relink-resolver
-   RELINK_SERVICE_PREFIX=/relink
-   ```
+Install and migrate:
 
-   TLS終端プロキシの背後に置く場合だけ、プロキシの送信元CIDRを`RELINK_TRUSTED_PROXY_CIDRS`へ設定します。プロキシは`X-Forwarded-Proto`と単一の`X-Forwarded-For`をクライアント入力から上書きしてください。本番で`RELINK_ADMIN_ALLOW_HTTP=1`を設定しないでください。
+```bash
+composer install --no-dev --classmap-authoritative
+sudo install -d -o www-data -g www-data -m 0770 /var/lib/relink-resolver
+sudo -u www-data php bin/migrate.php
+```
 
-3. Composer依存関係をインストールし、データディレクトリを作成してmigrationを実行します。
+Expose only `public/` from Apache. Keep `src/`, `migrations/`, `.env`, and SQLite outside the DocumentRoot. Enable `rewrite`, `headers`, `reqtimeout`, and, when Apache terminates TLS, `ssl`:
 
-   ```bash
-   cd /var/www/relink-resolver
-   composer install --no-dev --classmap-authoritative
-   sudo install -d -o www-data -g www-data -m 0770 /var/lib/relink-resolver
-   sudo -u www-data php bin/migrate.php
-   ```
+```bash
+sudo a2enmod rewrite headers reqtimeout ssl
+sudo a2ensite relink-resolver
+sudo systemctl reload apache2
+```
 
-4. Apacheに`public/`だけを公開します。`src/`、`migrations/`、`.env`、SQLiteファイルはDocumentRoot外に置きます。参照先の`deploy/apache-vhost.conf.example`をベースに、`ServerName`とパスを実環境へ変更してください。
+The current administration URL is `https://resolver.example/admin.php`. If `/admin/` is desired, add a Resolver-side rewrite.
 
-   ```apache
-   <VirtualHost *:443>
-       ServerName resolver.example
-       DocumentRoot /var/www/relink-resolver/public
+### Container profile
 
-       <Directory /var/www/relink-resolver/public>
-           AllowOverride All
-           Require all granted
-       </Directory>
-   </VirtualHost>
-   ```
+```bash
+git clone https://github.com/ranmaru50/relink-resolver.git
+cd relink-resolver
+cp .env.example .env
+chmod 600 .env
+editor .env
+docker compose --env-file .env up --build -d
+docker compose ps
+docker compose logs resolver
+```
 
-   参照先の設定例を配置してから編集する場合は、次のようにします。
+The default `127.0.0.1:8080:80` mapping is a development loopback exposure. Put it behind a TLS proxy in production and restrict administration at the network layer. The entrypoint migrates before Apache starts; deleting the `resolver-data` volume deletes registration data.
 
-   ```bash
-   sudo cp deploy/apache-vhost.conf.example /etc/apache2/sites-available/relink-resolver.conf
-   sudoedit /etc/apache2/sites-available/relink-resolver.conf
-   ```
+### Register the Lab Entity
 
-   `mod_rewrite`、`mod_headers`、`mod_reqtimeout`、必要に応じて`mod_ssl`を有効化します。Apache自身でTLSを終端する場合は、参照先の`deploy/apache-native-ssl-vhost.conf.example`を使い、秘密鍵をDocumentRoot外へ配置します。
-
-   ```bash
-   sudo a2enmod rewrite headers reqtimeout ssl
-   sudo a2ensite relink-resolver
-   sudo systemctl reload apache2
-   ```
-
-5. Resolverの管理画面へログインします。現在の参照実装の直接URLは次です。
-
-   ```text
-   https://resolver.example/admin.php
-   ```
-
-   `/admin/`という別名を使う場合は、Resolver側でそのURLを`admin.php`へ転送するrewriteを別途設定してください。
-
-### 3.2 Container profileで起動する場合
-
-1. Resolverを取得し、環境ファイルを作成します。
-
-   ```bash
-   git clone https://github.com/ranmaru50/relink-resolver.git
-   cd relink-resolver
-   cp .env.example .env
-   chmod 600 .env
-   editor .env
-   ```
-
-2. `.env`の`RELINK_ENV`、管理者情報、必要な公開URL・プロキシ設定を本番用に変更します。
-
-3. Composeを起動します。標準設定の`127.0.0.1:8080:80`は開発用loopback公開です。本番ではTLS終端プロキシからこのポートへ接続し、管理面もネットワーク側で制限します。
-
-   ```bash
-   docker compose --env-file .env up --build -d
-   docker compose ps
-   docker compose logs resolver
-   ```
-
-   ComposeのentrypointはApache起動前に`bin/migrate.php`を実行します。SQLiteは`resolver-data` volumeへ保存されるため、volumeを削除すると登録情報も失われます。
-
-### 3.3 ResolverへEntityを登録する
-
-Resolverの管理画面で、LabのAR-XMLを指すレコードを登録します。現在のLabでは次の値を例として使用します。
+Register an ACTIVE record in the Resolver administration interface:
 
 ```text
 Anchor UUID:
@@ -185,44 +143,41 @@ Lifecycle:
   ACTIVE
 
 Manifest publication:
-  direct（現在のLabでは任意Manifestを使用しない）
+  direct (this Lab does not use an optional Manifest)
 ```
 
-UUIDは実環境ごとに一意な値へ変更してください。`Description Location`は、ブラウザーから直接取得できるHTTPSの最終AR-XML URLです。ResolverのURLやPicoの`/device` URLを登録してはいけません。
-
-登録後、ResolverがAR-XMLを取得するのではなく、HTTP応答だけを確認します。
+Use a unique UUID in each environment. Register the final HTTPS AR-XML URL, never the Resolver URL or the Pico `/device` URL. Verify the HTTP response without asking the Resolver to fetch AR-XML:
 
 ```bash
 curl -i https://resolver.example/relink/550e8400-e29b-41d4-a716-446655440000
 ```
 
-期待する結果は`303 See Other`と、次の`Location`ヘッダーです。
+Expect `303 See Other` and:
 
 ```text
 Location: https://lab.example/arxml/pico2w.arxml
 ```
 
-ACTIVE以外の状態は公開仕様上、SUSPENDEDが`404`、RETIREDが`410`になります。状態変更は管理画面から行い、公開URLの動作で確認します。
+The public behavior for SUSPENDED is `404`; RETIRED is `410`.
 
-## 4. LabサーバーとWebアプリの設定
+## 4. Configure the Lab server and Web app
 
-### 4.1 Labを取得して依存関係を準備する
+Clone the Lab and install dependencies:
 
 ```bash
 git clone https://github.com/ranmaru50/relink-reference-lab.git
 cd relink-reference-lab
-
 composer install
 pnpm install
 uv sync
 uv run python scripts/download_runtime.py
 ```
 
-`download_runtime.py`は、参照先`relink-web-runtime`のv0.1.0 standalone ESM assetを取得し、固定SHA-256を検証して`public/vendor/relink-web-runtime.js`へ配置します。RuntimeのソースツリーをLabの公開DocumentRootへコピーする必要はありません。
+The download script obtains the v0.1.0 standalone ESM asset, verifies its pinned SHA-256 digest, and writes `public/vendor/relink-web-runtime.js`. Do not copy the Runtime source tree into the public DocumentRoot.
 
-### 4.2 SQLiteとPHP実行環境を設定する
+### SQLite and PHP
 
-SQLiteファイルはDocumentRoot外へ置き、Apache/PHPの実行ユーザーが読み書きできるようにします。
+Keep SQLite outside the DocumentRoot and grant the Apache/PHP user access:
 
 ```bash
 sudo install -d -o www-data -g www-data -m 0770 /var/lib/relink-reference-lab
@@ -231,7 +186,7 @@ sudo -u www-data env \
   php scripts/init_db.php
 ```
 
-ApacheまたはPHP-FPMへ、Resolver登録で使った`DEVICE_ID`と同じ値を設定します。
+Configure:
 
 ```text
 LAB_DB_PATH=/var/lib/relink-reference-lab/lab.sqlite
@@ -239,11 +194,9 @@ DEVICE_ID=pico2w-01
 DEVICE_COMMAND_TIMEOUT=8
 ```
 
-`LAB_DB_PATH`を省略した場合の既定値は、Lab checkout内の`data/lab.sqlite`です。開発用の既定値は利用できますが、公開環境ではDocumentRoot外の絶対パスを明示してください。
+`LAB_DB_PATH` defaults to `data/lab.sqlite` inside the checkout. Use an explicit absolute path outside the DocumentRoot for a public deployment.
 
-### 4.3 Apache VirtualHostを設定する
-
-LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Require`も使用するため、次のように`AllowOverride All`を設定します。
+### Apache VirtualHost
 
 ```apache
 <VirtualHost *:443>
@@ -255,7 +208,6 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
         Require all granted
     </Directory>
 
-    # AR-XMLとResolver-mediated fetchを許可する。必要なら本番のUI originへ限定する。
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
     Header always set X-Content-Type-Options "nosniff"
@@ -263,83 +215,46 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
 </VirtualHost>
 ```
 
-`Access-Control-Allow-Origin: *`は参照Labの簡易設定です。認証付き・利用者限定の構成では、許可するWebアプリoriginへ絞り、ResolverのCORS設定とも整合させてください。Resolverの公開URLとLabのAR-XML URLが別originの場合、ResolverとLabの両方からブラウザーの取得を許可する必要があります。
+`Access-Control-Allow-Origin: *` is a simple reference-Lab setting. Authenticated or user-limited deployments should restrict it to the Web-app origin and align Resolver CORS with Lab/AR-XML CORS. When Resolver and Lab are different origins, both must permit the browser fetches.
 
-### 4.4 AR-XMLを設定する
+### AR-XML and Web app
 
-現在のサンプルは`public/arxml/pico2w.arxml`です。AR-XMLは次のCapabilityを定義します。
+The fixture `public/arxml/pico2w.arxml` defines:
 
-| Capability ID | Interface | 相対endpoint | 入力・出力 |
+| Capability ID | Interface | Relative endpoint | Input/output |
 | --- | --- | --- | --- |
-| `light` | `POST`、JSON | `../api/light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
-| `temperature` | `GET` | `../api/temperature` | 入力なし → `{ "temperature": number }` |
+| `light` | `POST`, JSON | `../api/light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
+| `temperature` | `GET` | `../api/temperature` | no input → `{ "temperature": number }` |
 
-相対endpointは、Resolver URLではなく**最終的に取得されたAR-XMLのURL**を基準に解決されます。そのため、次の配置では`../api/...`がLabの`/api/...`になります。
+Relative endpoints use the **final fetched AR-XML URL**, not the Resolver URL. With the example placement, `../api/...` resolves to the Lab API. Do not put the Pico `/device/commands` or `/device/results` routes in AR-XML; they are internal command-store traffic.
 
-```text
-AR-XML: https://lab.example/arxml/pico2w.arxml
-../api/light/state → https://lab.example/api/light/state
-../api/temperature → https://lab.example/api/temperature
+To add a Capability, define its `id`, semantic `type`, `inputs`, `result.outputs`, `result.representations`, and `interfaces`, then implement the PHP endpoint and Pico `execute_command()` together. Runtime does not execute arbitrary JavaScript from AR-XML.
+
+The current UI is `public/index.html` and `public/app.js`. Set the Anchor URL default or enter it in the UI, select a language, load the Entity, and verify in the browser Network panel that the Anchor returns `303`, AR-XML returns `200`, no Capability is invoked on load, LED control produces `POST /api/light/state`, and temperature control produces `GET /api/temperature`.
+
+Custom UIs should use the Runtime API shape:
+
+```javascript
+import { ARRuntime } from "@relink/web-runtime";
+
+const runtimeDocument = await new ARRuntime().load(anchorUrl);
+const light = runtimeDocument.getCapability("light");
+const result = await light.invoke({ on: true }, { accept: "application/json" });
+console.log(result.values);
 ```
 
-AR-XMLを別ディレクトリへ移す場合は、相対パスがLab APIを指すか確認してください。Picoの`/device/commands`や`/device/results`をAR-XMLに記載してはいけません。これらはPicoとLab command store間の内部通信です。
+This Lab loads the pinned standalone asset from `public/vendor/relink-web-runtime.js` instead of adding the package as a dependency.
 
-独自Capabilityを追加する場合は、`id`、semantic `type`、`inputs`、`result.outputs`、`result.representations`、`interfaces`を定義し、対応するPHP endpointとPico側の`execute_command()`を同時に実装します。RuntimeはAR-XML内の任意JavaScriptを実行する仕組みではありません。
+## 5. Configure the Pico 2 W
 
-### 4.5 Webアプリを設定する
-
-現在のWebアプリは`public/index.html`と`public/app.js`です。
-
-1. `public/index.html`のAnchor URL初期値を実環境のResolver公開URLへ変更するか、ブラウザー画面で入力します。
-
-   ```html
-   <input
-     id="anchor-url"
-     value="https://resolver.example/relink/550e8400-e29b-41d4-a716-446655440000"
-   />
-   ```
-
-2. `public/app.js`の`ARRuntime.load()`へAnchor URLを渡します。Runtimeが303を追従してAR-XMLを取得し、最終URL基準でInterface endpointを解決します。
-
-3. Capability実行は、ユーザーがボタンを押したときだけ行われます。ページロードやAR-XMLの発見だけでLEDを操作しないことを確認します。
-
-4. カスタムUIを追加する場合は、Runtimeの基本形に合わせて`load()`、`getCapability(localId)`、`invoke(inputs, options)`を使用します。
-
-   ```javascript
-   import { ARRuntime } from "@relink/web-runtime";
-
-   const runtimeDocument = await new ARRuntime().load(anchorUrl);
-   const light = runtimeDocument.getCapability("light");
-   const result = await light.invoke({ on: true }, { accept: "application/json" });
-   console.log(result.values);
-   ```
-
-   上記は`relink-web-runtime`の公開API形です。現在のLabは、依存関係としてパッケージを組み込む代わりに、固定版standalone assetを`public/vendor/relink-web-runtime.js`として読み込みます。
-
-5. AR-XMLとWebアプリを公開し、ブラウザーのNetwork panelで次を確認します。
-
-   - Resolver AnchorへのGETが`303`になる
-   - `Location`先のAR-XMLが`200`で返る
-   - AR-XML取得後もCapability invokeが自動発生しない
-   - LED操作で`POST /api/light/state`が発生する
-   - 温度操作で`GET /api/temperature`が発生する
-
-## 5. Pico 2 Wの設定
-
-### 5.1 MicroPythonを準備する
-
-Pico 2 Wへ対応するMicroPythonをインストールし、シリアルREPLまたはThonny等の転送手段を用意します。HTTP clientが標準で含まれないファームウェアでは、`urequests`とTLS証明書検証を利用できる構成を別途用意してください。
-
-このリポジトリの`main.py`は、`urequests`があればそれを使い、なければ`requests`を使います。使用するライブラリが次の呼び出しに対応していることを確認します。
+Install compatible MicroPython and prepare a serial REPL or a transfer tool such as Thonny. If the firmware lacks an HTTP client, provide `urequests` and a configuration with TLS certificate validation. The Lab firmware supports:
 
 ```python
 requests.get(url, timeout=seconds)
 requests.post(url, data=json_text, headers=headers, timeout=seconds)
 ```
 
-### 5.2 `config.py`を作成する
-
-`firmware/pico2w/config.example.py`をPico上の`config.py`としてコピーし、実環境の値を設定します。
+Copy `firmware/pico2w/config.example.py` to `config.py` and set:
 
 ```python
 WIFI_SSID = "your-wifi-ssid"
@@ -351,118 +266,89 @@ HTTP_TIMEOUT_SECONDS = 10
 WIFI_CONNECT_TIMEOUT_SECONDS = 20
 ```
 
-重要な一致条件は次のとおりです。
+`DEVICE_ID` must exactly match the Lab server; `GATEWAY_URL` must be the Lab `/device` base URL, not the Resolver or `/api` URL. Never commit Wi-Fi credentials or HTTPS secrets.
 
-- `DEVICE_ID`はLabサーバーの`DEVICE_ID`と完全一致させる
-- `GATEWAY_URL`はLabの`/device` base URLを指定する
-- `GATEWAY_URL`へResolver URLや`/api` URLを指定しない
-- Wi-FiパスワードとHTTPS関連の秘密情報をGitへアップロードしない
+Transfer `main.py` and `config.py` to the Pico (the latter is ignored by Git) and reboot it. The Pico then connects to Wi-Fi and starts polling.
 
-### 5.3 ファームウェアを転送する
+### Device protocol
 
-Picoへ次の2ファイルを転送します。
+The Pico opens no inbound server:
 
-```text
-firmware/pico2w/main.py   → Picoのmain.py
-firmware/pico2w/config.py → Picoのconfig.py
-```
-
-`config.py`は`.gitignore`で除外されています。転送後にPicoを再起動すると、`main.py`がWi-Fiへ接続し、Labへpollingを開始します。
-
-### 5.4 PicoとLab間のプロトコル
-
-Picoは受信待ちサーバーを開かず、Labへoutbound接続します。
-
-1. command取得:
+1. Claim a command:
 
    ```text
    GET https://lab.example/device/commands?device_id=pico2w-01
    ```
 
-   - `204 No Content`: commandなし。次のpollingへ進む
-   - `200 OK`: `id`、`action`、`inputs`を含むcommandを実行する
+   `204 No Content` means there is no command; `200 OK` contains `id`, `action`, and `inputs`.
 
-2. 現在サポートするcommand:
+2. Supported commands:
 
    ```json
    {"action":"light.setState","inputs":{"on":true}}
    {"action":"temperature.read","inputs":{}}
    ```
 
-3. result callback:
+3. Post the result:
 
    ```text
    POST https://lab.example/device/results/{command_id}
    Content-Type: application/json
    ```
 
-   成功・失敗の例:
+   Examples are `{"device_id":"pico2w-01","ok":true,"values":{"state":true}}`, `{"device_id":"pico2w-01","ok":true,"values":{"temperature":22.4}}`, and an error payload with `ok:false`.
 
-   ```json
-   {"device_id":"pico2w-01","ok":true,"values":{"state":true}}
-   {"device_id":"pico2w-01","ok":true,"values":{"temperature":22.4}}
-   {"device_id":"pico2w-01","ok":false,"error":"unsupported lab command"}
-   ```
+If the result callback is not HTTP 200, the Pico enters reconnect/exponential backoff. Check the command ID, device ID, JSON shape, and command expiry.
 
-4. result callbackが`200`以外の場合、Picoはエラーとして扱い、外側の再接続・指数バックオフへ戻ります。Lab側のcommand ID、device ID、JSON形式が一致しているか確認してください。
+### Physical check
 
-### 5.5 実機確認
+Check the Pico serial log, open the Lab Web UI, enter the Resolver Anchor URL, and select **Load Entity**. Confirm that `light` and `temperature` appear without a command being issued. Test **LED ON**, **LED OFF**, and **Read temperature**, then correlate Apache logs, SQLite state, and Pico logs by command ID. The RP2350 internal temperature is not an accurate room-temperature sensor. Verify TLS validation, SNI, timeouts, memory, and Wi-Fi reconnection on the hardware.
 
-1. PicoのシリアルログでWi-Fi接続と例外の有無を確認します。
-2. ブラウザーでLab Webアプリを開き、Resolver Anchor URLを入力して「Entityを読み込む」を押します。
-3. `light`と`temperature`が表示され、ロード直後にcommandが発行されていないことを確認します。
-4. 「LEDをON」「LEDをOFF」を押し、PicoのオンボードLEDを確認します。
-5. 「温度を読み取る」を押し、数値が表示されることを確認します。
-6. Apacheアクセスログ、LabのSQLite状態、Picoのシリアルログをcommand IDで突き合わせます。
-
-RP2350内部温度は正確な室温センサー値ではありません。TLSの証明書検証、SNI、timeout、メモリ使用量、Wi-Fi再接続は実機で確認してください。
-
-## 6. 動作確認チェックリスト
+## 6. Verification checklist
 
 ### Resolver
 
-- [ ] `https://resolver.example/relink/{uuid}`が登録済みUUIDに対して`303`を返す
-- [ ] `Location`がLabのHTTPS AR-XML URLを指す
-- [ ] SUSPENDEDが`404`、RETIREDが`410`になる
-- [ ] 管理画面がHTTPSと認証を要求する
-- [ ] SQLiteと`.env`がDocumentRoot外にある
+- [ ] The registered UUID returns `303`.
+- [ ] `Location` points to the Lab HTTPS AR-XML URL.
+- [ ] SUSPENDED returns `404`; RETIRED returns `410`.
+- [ ] Administration requires HTTPS and authentication.
+- [ ] SQLite and `.env` are outside the DocumentRoot.
 
 ### Lab / Web Runtime
 
-- [ ] AR-XMLが`200`で取得できる
-- [ ] ResolverとLabのCORSがブラウザーのcross-origin fetchに対応している
-- [ ] Runtime assetがSHA-256検証済みで配置されている
-- [ ] ロードだけではCapabilityを実行しない
-- [ ] `light`と`temperature`が表示される
-- [ ] Capabilityの相対endpointが最終AR-XML URL基準で正しく解決される
+- [ ] AR-XML returns `200`.
+- [ ] Resolver and Lab CORS allow the browser cross-origin fetches.
+- [ ] The Runtime asset is placed after SHA-256 verification.
+- [ ] Loading does not execute a Capability.
+- [ ] `light` and `temperature` appear.
+- [ ] Relative endpoints resolve from the final AR-XML URL.
 
 ### Pico
 
-- [ ] `config.py`のWi-Fi情報が正しい
-- [ ] `DEVICE_ID`がサーバーと一致する
-- [ ] `GATEWAY_URL`がLabの`/device`を指す
-- [ ] command pollingが`204`または`200`を受け取る
-- [ ] result callbackが`200`を返す
-- [ ] LED操作と温度読み取りが実機で完了する
+- [ ] Wi-Fi values in `config.py` are correct.
+- [ ] `DEVICE_ID` matches the server.
+- [ ] `GATEWAY_URL` points to the Lab `/device` route.
+- [ ] Polling receives `204` or `200`.
+- [ ] Result callbacks return `200`.
+- [ ] LED control and temperature reading complete on hardware.
 
-## 7. 障害時の確認順
+## 7. Troubleshooting order
 
-| 症状 | 確認箇所 |
+| Symptom | Check |
 | --- | --- |
-| Anchorのロードに失敗する | Resolverの`303`、Lab AR-XMLの`200`、両ホストのTLS/CORS、ブラウザーNetwork panel |
-| Capabilityが表示されない | AR-XMLのnamespace/version、`public/vendor/relink-web-runtime.js`、Runtimeのparse error |
-| ボタンが有効にならない | `light`/`temperature`のlocal ID、AR-XMLのCapability定義、Runtime load結果 |
-| LEDが変化しない | Labの`POST /api/light/state`、SQLite command store、PicoのGET polling、`DEVICE_ID`一致 |
-| 温度が表示されない | `GET /api/temperature`、PicoのADC実行、result callbackのJSONとHTTP status |
-| Picoが繰り返し再接続する | Wi-Fi timeout、HTTPS証明書検証、HTTP timeout、Lab endpointの到達性、result callback status |
-| `403`/`404`が返る | device ID、command ID、JSONの`device_id`、commandの期限切れ、Resolver lifecycle |
+| Anchor load fails | Resolver `303`, Lab AR-XML `200`, TLS/CORS on both hosts, and browser Network panel |
+| No Capabilities | AR-XML namespace/version, Runtime asset, and Runtime parse errors |
+| Buttons stay disabled | `light`/`temperature` local IDs, AR-XML definitions, and Runtime load result |
+| LED does not change | `POST /api/light/state`, SQLite command store, Pico polling, and matching `DEVICE_ID` |
+| No temperature | `GET /api/temperature`, Pico ADC execution, result JSON, and HTTP status |
+| Pico reconnects repeatedly | Wi-Fi/TLS/HTTP timeouts, endpoint reachability, and callback status |
+| `403` or `404` | Device ID, command ID, result `device_id`, expiry, and Resolver lifecycle |
 
-## 8. 参照資料
+## 8. References
 
-- [Resolver README（日本語）](https://github.com/ranmaru50/relink-resolver/blob/main/README.ja.md)
-- [Resolver Reference Resolver実装ガイド](https://github.com/ranmaru50/relink-resolver/blob/main/docs/implementation.md)
-- [Resolver Container profile](https://github.com/ranmaru50/relink-resolver/blob/main/compose.yaml)
-- [Resolver環境変数の例](https://github.com/ranmaru50/relink-resolver/blob/main/.env.example)
-- [Web Runtime README（日本語）](https://github.com/ranmaru50/relink-web-runtime/blob/main/README.ja.md)
+- [Resolver implementation guide](https://github.com/ranmaru50/relink-resolver/blob/main/docs/implementation.md)
+- [Resolver container profile](https://github.com/ranmaru50/relink-resolver/blob/main/compose.yaml)
+- [Resolver environment example](https://github.com/ranmaru50/relink-resolver/blob/main/.env.example)
+- [Web Runtime README](https://github.com/ranmaru50/relink-web-runtime/blob/main/README.md)
 - [Web Runtime package.json](https://github.com/ranmaru50/relink-web-runtime/blob/main/package.json)
-- [Labの既存セットアップ手順](setup.md)
+- [Lab Apache/PHP setup](setup.md)

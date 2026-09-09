@@ -1,31 +1,25 @@
 # RELink Pico 2 W Reference Lab
 
-Raspberry Pi Pico 2 W を物理 Entity として、既存の RELink Resolver、AR-XML Core 0.1 Draft 4、RELink Web Runtime 0.1.0、Apache + PHP + SQLite、Pico MicroPython を接続する最小 L1 参照ラボです。
+[日本語版](README.ja.md)
 
-このリポジトリは `relink-web-runtime`、`relink-resolver`、`relink-testbed` の代替実装ではありません。Resolver は既存の Apache + PHP + SQLite 実装を別サービスとして再利用し、Lab は AR-XML、Web UI、Capability API、デバイス command store を提供します。
+This repository is a minimal L1 reference lab that connects a Raspberry Pi Pico 2 W as a physical entity with the existing RELink Resolver, AR-XML Core 0.1 Draft 4, RELink Web Runtime 0.1.0, Apache + PHP + SQLite, and Pico MicroPython.
+
+This lab is not a replacement for `relink-web-runtime`, `relink-resolver`, or `relink-testbed`. It reuses the existing Apache + PHP + SQLite implementation as a separate Resolver service and provides the AR-XML fixture, Web UI, Capability API, and device command store.
 
 ## What this lab validates
 
-このラボで検証するもの:
+- The Resolver Core 0.1 L1 path.
+- UUID → `303 See Other` → AR-XML resolution by the existing Resolver.
+- Resolver-mediated loading with Web Runtime 0.1.0.
+- Parsing and validation of the AR-XML Draft 4 fixture used by this lab.
+- Relative Interface URL resolution based on the final AR-XML URL.
+- Explicit HTTP Capability invocation.
+- A physical output: the Pico onboard LED.
+- A physical input: the RP2350 internal temperature reading.
 
-- Resolver Core 0.1 の L1 パス
-- 既存 Resolver による UUID → `303 See Other` → AR-XML
-- Runtime 0.1.0 による Resolver-mediated loading
-- この fixture に対する AR-XML Draft 4 の解析・検証
-- 最終 AR-XML URL を基準にした相対 Interface URL 解決
-- 明示的な HTTP Capability invocation
-- 物理出力: Pico オンボード LED
-- 物理入力: RP2350 内部温度の読み取り
+This lab does not claim Resolver L2 authenticity, production authorization or security, complete RELink or AR-XML conformance, automatic Runtime execution, or accurate room-temperature measurement.
 
-このラボが主張しないもの:
-
-- Resolver L2 の真正性、認証、認可
-- 本番 Capability authorization / security
-- RELink 全体または AR-XML 全体への完全準拠
-- Runtime による自動実行
-- 正確な室温測定
-
-## アーキテクチャ
+## Architecture
 
 ```text
 [Discovery / Description]
@@ -45,7 +39,7 @@ Human → Web App → RuntimeCapability.invoke()
 Pico 2 W (MicroPython)
 ```
 
-境界は明示的に保ちます。
+The boundaries are intentional:
 
 ```text
 Entity      ≠ Location
@@ -54,46 +48,46 @@ Description ≠ Execution
 Resolution  ≠ Authentication
 ```
 
-Resolver は UUID と current AR-XML Description Location の対応だけを扱い、AR-XML を fetch/parse したり Capability を実行したりしません。Web Runtime の `load()` は発見・記述処理であり、Capability 実行はユーザーがボタンを押したときの `invoke()` に限ります。
+The Resolver maps a UUID to the current AR-XML Description Location. It does not fetch or parse AR-XML and does not execute Capabilities. Web Runtime `load()` is discovery and description; Capability execution happens only when the user presses a button and calls `invoke()`.
 
-## 必要なもの
+## Requirements
 
-- Apache 2.4（`mod_rewrite`、`.htaccess` の `AllowOverride FileInfo`）
-- PHP 8.1 以上（PDO、`pdo_sqlite`、JSON）
-- SQLite 3
-- Composer（PHPUnit / PHPStan の導入用）
-- Node.js 20 以上、pnpm（Vitest / ESLint の導入用）
-- Python 3.11 以上、`uv`（Runtime 取得・Apache acceptance 用）
-- Raspberry Pi Pico 2 W、対応 MicroPython
-- Wi-Fi またはスマートフォンのテザリング
+- Apache 2.4 with `mod_rewrite` and `.htaccess` `AllowOverride FileInfo`.
+- PHP 8.1+ with PDO, `pdo_sqlite`, and JSON.
+- SQLite 3.
+- Composer for PHPUnit and PHPStan.
+- Node.js 20+ and pnpm for Vitest and ESLint.
+- Python 3.11+ and `uv` for Runtime download and Apache acceptance.
+- Raspberry Pi Pico 2 W with compatible MicroPython.
+- Wi-Fi or phone tethering.
 
-Python はサーバー実行環境ではありません。Lab の Web/Capability/device endpoint は PHP、共有状態は DocumentRoot 外の SQLite が担当します。
+Python is not the server runtime. PHP serves the Web and Capability/device endpoints; SQLite stores shared state outside the Apache DocumentRoot.
 
-## セットアップ
+## Setup
 
-Resolver、AR-XML/Webアプリ、Pico 2 Wをまとめて構築する場合は、[統合セットアップ手順](docs/integrated-setup.md)を参照してください。
+For an end-to-end setup of the Resolver, AR-XML/Web app, and Pico 2 W, see [the integrated setup guide](docs/integrated-setup.md) ([日本語](docs/integrated-setup.ja.md)). The shorter Apache/PHP setup is available in [docs/setup.md](docs/setup.md) ([日本語](docs/setup.ja.md)).
 
-### 1. Runtime 0.1.0 を取得
+### 1. Download Runtime 0.1.0
 
-Runtime のソースツリーはコピーせず、公開 standalone ESM asset を SHA-256 検証付きで取得します。
+Do not copy the Runtime source tree. Download the published standalone ESM asset and verify its SHA-256 digest:
 
 ```text
 uv run python scripts/download_runtime.py
 ```
 
-取得先は `public/vendor/relink-web-runtime.js` です。URL と SHA-256 は取得スクリプトに固定され、アセット自体は Git 管理対象外です。
+The asset is written to `public/vendor/relink-web-runtime.js` and is excluded from Git. The URL and digest are pinned in the download script.
 
-### 2. SQLite を初期化
+### 2. Initialize SQLite
 
 ```text
 php scripts/init_db.php
 ```
 
-既定のデータベースは `data/lab.sqlite` です。`data/` は Apache DocumentRoot の外側に置きます。別の場所を使う場合は Apache/PHP の `LAB_DB_PATH` を同じ絶対パスに設定してください。
+The default database is `data/lab.sqlite`. Keep `data/` outside the Apache DocumentRoot. If another location is used, set the same absolute `LAB_DB_PATH` for initialization and runtime.
 
-### 3. Apache を設定
+### 3. Configure Apache
 
-Apache VirtualHost の `DocumentRoot` をこのリポジトリの `public/` に設定し、次を許可します。
+Set the Apache VirtualHost `DocumentRoot` to this repository's `public/` directory and allow overrides:
 
 ```apache
 <Directory "<checkout>/public">
@@ -102,7 +96,7 @@ Apache VirtualHost の `DocumentRoot` をこのリポジトリの `public/` に�
 </Directory>
 ```
 
-`public/.htaccess` が、PHP の実ファイル名を AR-XML と Web UI に露出させず、次の公開 route へ rewrite します。
+`public/.htaccess` hides PHP filenames from the AR-XML and Web UI and rewrites these public routes:
 
 ```text
 /api/light/state
@@ -111,29 +105,29 @@ Apache VirtualHost の `DocumentRoot` をこのリポジトリの `public/` に�
 /device/results/{command_id}
 ```
 
-`LAB_DB_PATH`、`DEVICE_ID`、`DEVICE_COMMAND_TIMEOUT` は Apache の VirtualHost または PHP-FPM pool で設定します。公開時は通常の HTTPS reverse proxy / hosting で TLS を終端してください。
+Configure `LAB_DB_PATH`, `DEVICE_ID`, and `DEVICE_COMMAND_TIMEOUT` in the Apache VirtualHost or PHP-FPM pool. Terminate TLS with the normal HTTPS reverse proxy or hosting service before production use.
 
-### 4. 既存 Resolver を登録
+### 4. Register the existing Resolver
 
-`relink-resolver` を別サービスとして起動し、管理面で次を登録します。Lab は Resolver の登録 API を再実装しません。
+Run `relink-resolver` as a separate service and register the following values in its administration interface:
 
 ```text
 Anchor UUID: 550e8400-e29b-41d4-a716-446655440000
 Description Location: https://<lab-host>/arxml/pico2w.arxml
-状態: ACTIVE
+Lifecycle: ACTIVE
 ```
 
-QR / Anchor には次のような既存 Resolver の公開 URL を設定します。
+Use the Resolver's public URL in the QR code or Anchor:
 
 ```text
 https://<resolver-host>/relink/550e8400-e29b-41d4-a716-446655440000
 ```
 
-通常の L1 は Resolver → AR-XML の直接 `303` であり、Manifest を前提にしません。
+Normal L1 behavior is a direct Resolver → AR-XML `303`; it does not require a Manifest.
 
-### 5. Pico 2 W を設定
+### 5. Configure the Pico 2 W
 
-`firmware/pico2w/config.example.py` を `config.py` として Pico にコピーし、Wi-Fi と Lab の device endpoint を設定します。
+Copy `firmware/pico2w/config.example.py` to `config.py` on the Pico and set the Wi-Fi and device endpoint values:
 
 ```python
 WIFI_SSID = "your-wifi"
@@ -142,21 +136,21 @@ DEVICE_ID = "pico2w-01"
 GATEWAY_URL = "https://<lab-host>/device"
 ```
 
-`boot.py`、`main.py`、`config.py` を Pico のルートへ配置して再起動します。Pico は `GET /device/commands` → 実行 → `POST /device/results/{id}` を繰り返し、接続失敗時は指数 backoff します。
+Copy `boot.py`, `main.py`, and `config.py` to the Pico root and reboot it. The Pico repeatedly performs `GET /device/commands`, executes the command, and posts to `POST /device/results/{id}`. Connection failures use exponential backoff.
 
-このリポジトリでは Pico 実機上の TLS/CA 検証を完了していません。MicroPython の `urequests` と使用する firmware の CA 検証、SNI、メモリ制限を実機で確認してから公開運用してください。
+TLS/CA verification on real Pico hardware has not been completed in this repository. Verify the MicroPython `urequests` implementation, firmware CA validation, SNI behavior, and memory limits before public deployment.
 
-## 操作方法
+## Using the Web UI
 
-1. `https://<lab-host>/` を開く。
-2. 既存 Resolver の Anchor URL を入力し、「Entity を読み込む」を押す。
-3. `light` と `temperature` が表示されることを確認する。
-4. 「LED を ON/OFF」または「温度を読み取る」を押す。
-5. LED の状態または JSON の温度値を確認する。
+1. Open `https://<lab-host>/`.
+2. Select English or 日本語, enter the existing Resolver Anchor URL, and select **Load Entity**.
+3. Confirm that `light` and `temperature` appear.
+4. Select **LED ON**, **LED OFF**, or **Read temperature**.
+5. Confirm the LED state or JSON temperature value.
 
-ロード・発見だけでは物理操作は発生しません。温度値は RP2350 内部温度で、正確な室温センサー値ではありません。
+Loading and discovery never cause a physical operation. The temperature is the RP2350 internal temperature, not an accurate room-temperature sensor reading.
 
-## テスト
+## Tests
 
 ```text
 composer install
@@ -169,42 +163,40 @@ uv run pytest
 uv run ruff check .
 ```
 
-PHP の単体テストは PHPUnit、PHP の静的解析は PHPStan、Web JavaScript の DOM 単体テストは Vitest + jsdom、JavaScript の静的解析は ESLint が担当します。Python の pytest / Ruff は Apache acceptance の配線補助と Runtime 取得スクリプトに限定しています。
+PHPUnit tests the SQLite command-store transitions, PHPStan checks PHP sources and tests, Vitest tests the Web UI's explicit load/invoke behavior and language switching, and ESLint checks JavaScript. Python tests and Ruff cover the Apache acceptance helper and Runtime download script.
 
-PHP/Composer や Node/pnpm がない環境では該当コマンドを実行できないため、CI または各ツールを導入した環境で実行してください。
-
-Apache の実 HTTP route は、Apache を起動した状態で次を実行します。
+When Apache is running, execute the real HTTP acceptance checks with:
 
 ```text
 uv run python scripts/apache_acceptance.py --base-url https://<lab-host>
 ```
 
-この acceptance は static AR-XML、PHP rewrite 後の入力 validation、OPTIONS/CORS、empty device polling、malformed result response を実 request で確認します。Pico が接続している場合の成功経路は、続く手動チェックリストで確認します。
+The acceptance script checks static AR-XML, rewrite and input validation, OPTIONS/CORS, empty device polling, and malformed result responses. Physical success paths require the manual checklist below.
 
-## 手動物理受け入れチェックリスト
+## Manual physical acceptance checklist
 
-- [ ] Pico が文書化した Wi-Fi / テザリングへ bounded timeout 内に接続する。
-- [ ] Pico が outbound HTTPS device session を確立する。
-- [ ] Anchor URL が既存 Resolver L1 から AR-XML URL へ `303` される。
-- [ ] Web Runtime 0.1.0 が Anchor path をロードする。
-- [ ] Web App に 2 Capability が表示される。
-- [ ] `light.setState(true)` で LED が点灯する。
-- [ ] `light.setState(false)` で LED が消灯する。
-- [ ] `temperature.read()` が数値を返す。
-- [ ] デバイス停止時に API が 504 を返し、UI がエラーを表示する。
-- [ ] ロードだけでは Capability が実行されない。
-- [ ] Apache acceptance が実 HTTP route、JSON status、CORS を確認する。
+- [ ] The Pico connects to the documented Wi-Fi or tethering within the bounded timeout.
+- [ ] The Pico establishes an outbound HTTPS device session.
+- [ ] The Anchor URL resolves through Resolver L1 to the AR-XML URL with `303`.
+- [ ] Web Runtime 0.1.0 loads the Anchor path.
+- [ ] The Web UI displays two Capabilities.
+- [ ] `light.setState(true)` turns the LED on.
+- [ ] `light.setState(false)` turns the LED off.
+- [ ] `temperature.read()` returns a number.
+- [ ] When the device is stopped, the API returns 504 and the UI displays an error.
+- [ ] Loading alone never executes a Capability.
+- [ ] Apache acceptance verifies real HTTP routes, JSON status, and CORS.
 
-## トラブルシューティングと制限
+## Troubleshooting and limitations
 
-- Runtime asset がない場合は download script を実行する。
-- 504 は Pico の offline、Wi-Fi 断、command expiry、または timeout の可能性がある。
-- `commands` が 204 のときは待機中 command がない。expired command は Pico へ配送されない。
-- result の 404/403/409/5xx は Pico 側で成功扱いにせず backoff へ戻る。
-- Pico が物理 command 実行後に result callback を失うと、物理 side effect は発生したが Web API は 504 になる可能性がある。command は再配送せず、at-most-once 寄りで扱う。
-- SQLite command store は共有状態だが、単一 Lab 用の最小実装であり、認証・暗号化・高可用性は提供しない。
-- Gateway/Capability API は Apache + PHP、Resolver は既存 `relink-resolver` という別責務である。
+- Run the Runtime download script when the asset is missing.
+- A 504 may indicate an offline Pico, Wi-Fi failure, command expiry, or timeout.
+- A `204` response from `commands` means there is no pending command; expired commands are not delivered.
+- Treat 404/403/409/5xx result responses as failures on the Pico and return to backoff.
+- If the Pico loses the result callback after a physical command, the side effect may have happened while the Web API returns 504. Commands are not redelivered and are intentionally close to at-most-once semantics.
+- The SQLite command store is a minimal single-lab shared-state implementation. It does not provide authentication, encryption, or high availability.
+- The Gateway/Capability API (Apache + PHP) and the existing `relink-resolver` are separate responsibilities.
 
-## 調査結果
+## Findings
 
-Draft 4 の相対 endpoint、内部温度、MicroPython TLS/CA、SQLite session の観察は [docs/findings.md](docs/findings.md) に分類して記録しています。
+Observations about relative Draft 4 endpoints, internal temperature, MicroPython TLS/CA behavior, and SQLite sessions are classified in [docs/findings.md](docs/findings.md) ([日本語](docs/findings.ja.md)).
