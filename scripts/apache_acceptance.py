@@ -74,7 +74,7 @@ def check_hardening(
         f"{label} security probe",
     )
     server_header = normal.headers.get("Server", "")
-    if server_header != "Apache":
+    if server_header.strip() != "Apache":
         raise RuntimeError(f"{label} Server header is not hardened: {server_header!r}")
     if normal.headers.get("X-Powered-By") is not None:
         raise RuntimeError(f"{label} exposes X-Powered-By")

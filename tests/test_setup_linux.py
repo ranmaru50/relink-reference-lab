@@ -90,7 +90,9 @@ def test_public_tls_restricts_execution_and_applies_hardening() -> None:
     assert 'EXECUTION_ALLOWLIST="${EXECUTION_ALLOWLIST:-local}"' in setup
     assert 'Require local' in setup
     assert 'Require ip 127.0.0.1 ${EXECUTION_ALLOWLIST//,/ }' in setup
-    assert 'SetEnv RELINK_ENV $(if [[ "${TLS_MODE}" == "public" ]]' in setup
+    assert 'local resolver_environment="development"' in setup
+    assert 'resolver_environment="production"' in setup
+    assert "SetEnv RELINK_ENV ${resolver_environment}" in setup
     assert "ServerTokens Prod" in setup
     assert "ServerSignature Off" in setup
     assert "TraceEnable Off" in setup
