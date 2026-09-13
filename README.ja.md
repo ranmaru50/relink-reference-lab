@@ -112,6 +112,8 @@ Apache VirtualHost の `DocumentRoot` をこのリポジトリの `public/` に�
 </Directory>
 ```
 
+公開配備では、`<LocationMatch "^/(api|device)(/|$)">` に `Require local` または明示的な信頼済み CIDR を指定して実行面を制限してください。`Require all granted` はローカル実験用です。HTTPS は認証・認可を提供しません。
+
 `public/.htaccess` が、PHP の実ファイル名を AR-XML と Web UI に露出させず、次の公開 route へ rewrite します。
 
 ```text

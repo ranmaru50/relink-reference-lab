@@ -32,15 +32,18 @@ def request(
     method: str = "GET",
     payload: dict | None = None,
     opener=None,
+    headers: dict[str, str] | None = None,
 ):
     """HTTP request を送り、HTTPError も通常 response として返す。"""
     body = None if payload is None else json.dumps(payload).encode("utf-8")
-    headers = {"Content-Type": "application/json"} if body is not None else {}
+    request_headers = {"Content-Type": "application/json"} if body is not None else {}
+    if headers:
+        request_headers.update(headers)
     request_object = Request(
         urljoin(base_url.rstrip("/") + "/", path.lstrip("/")),
         data=body,
         method=method,
-        headers=headers,
+        headers=request_headers,
     )
     http_opener = opener or build_http_opener()
     try:
@@ -56,6 +59,45 @@ def expect(response, status: int, label: str):
     return response
 
 
+def check_hardening(
+    base_url: str,
+    path: str,
+    opener,
+    label: str,
+    require_hsts: bool,
+    expected_status: int = 200,
+) -> None:
+    """Apache hardening の実効値（header、TRACE、request bound）を確認する。"""
+    normal = expect(
+        request(base_url, path, opener=opener),
+        expected_status,
+        f"{label} security probe",
+    )
+    server_header = normal.headers.get("Server", "")
+    if server_header != "Apache":
+        raise RuntimeError(f"{label} Server header is not hardened: {server_header!r}")
+    if normal.headers.get("X-Powered-By") is not None:
+        raise RuntimeError(f"{label} exposes X-Powered-By")
+    if require_hsts and normal.headers.get("Strict-Transport-Security") != "max-age=31536000":
+        raise RuntimeError(f"{label} is missing the expected HSTS header")
+
+    expect(
+        request(base_url, path, "TRACE", opener=opener),
+        405,
+        f"{label} TRACE disabled",
+    )
+    expect(
+        request(
+            base_url,
+            path,
+            headers={"X-RELink-Acceptance-Oversized": "x" * 9000},
+            opener=opener,
+        ),
+        400,
+        f"{label} request field bound",
+    )
+
+
 def run(
     base_url: str,
     device_id: str,
@@ -64,6 +106,7 @@ def run(
     expected_location: str | None = None,
     ca_file: str | None = None,
     runtime_sha256: str | None = None,
+    require_hsts: bool = False,
 ) -> None:
     """Apache route、Resolver redirect、Runtime asset をまとめて検証する。"""
     resolver_values = (resolver_base_url, anchor_uuid, expected_location)
@@ -77,6 +120,7 @@ def run(
     web_ui = expect(request(base_url, "/", opener=opener), 200, "Lab Web UI")
     if "RELink Pico 2 W" not in web_ui.read().decode("utf-8"):
         raise RuntimeError("Lab Web UI body is invalid")
+    check_hardening(base_url, "/", opener, "Lab", require_hsts)
 
     arxml = expect(request(base_url, "/arxml/pico2w.arxml", opener=opener), 200, "AR-XML")
     if "ar-entity" not in arxml.read().decode("utf-8"):
@@ -94,6 +138,14 @@ def run(
         )
 
     if any(value is not None for value in resolver_values):
+        check_hardening(
+            resolver_base_url,
+            f"/relink/{anchor_uuid}",
+            opener,
+            "Resolver",
+            require_hsts,
+            expected_status=303,
+        )
         resolver = expect(
             request(resolver_base_url, f"/relink/{anchor_uuid}", opener=opener),
             303,
@@ -146,6 +198,11 @@ def main() -> int:
     parser.add_argument("--expected-location", help="Expected Resolver Location header")
     parser.add_argument("--ca-file", help="Development CA certificate used by local HTTPS")
     parser.add_argument("--runtime-sha256", help="Expected Runtime asset SHA-256")
+    parser.add_argument(
+        "--require-hsts",
+        action="store_true",
+        help="Require the production HSTS header on both Apache hosts",
+    )
     args = parser.parse_args()
     try:
         run(
@@ -156,6 +213,7 @@ def main() -> int:
             args.expected_location,
             args.ca_file,
             args.runtime_sha256,
+            args.require_hsts,
         )
     except Exception as error:  # noqa: BLE001 - acceptance は失敗理由を表示する
         print(f"Apache acceptance failed: {error}", file=sys.stderr)

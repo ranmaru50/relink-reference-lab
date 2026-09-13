@@ -56,11 +56,13 @@ sudo ./scripts/setup-linux.sh \
   --certificate-key-file /etc/letsencrypt/live/relink/privkey.pem
 ```
 
+`public` mode では、`/api/` と `/device/` を既定で localhost に制限します。物理実行を管理ネットワークから許可する場合だけ、`--execution-allowlist` へ明示的な CIDR を指定してください。これらの route をインターネット全体へ公開しないでください。TLS は認証・認可を提供しません。
+
 ### 変更されるものと再実行
 
-スクリプトはAPT package、Resolver checkout、2つのデータディレクトリ、`/etc/relink-reference-lab`、`/etc/apache2/sites-available/relink-*.conf`、対応するsite symlink、VM内の`/etc/hosts`管理行を変更します。Labのclone自体は別場所へコピーしないため、配備中は移動・削除しないでください。
+スクリプトはAPT package、Resolver checkout、2つのデータディレクトリ、`/etc/relink-reference-lab`、管理対象のApache hardening／PHP security設定、`/etc/apache2/sites-available/relink-*.conf`、対応するsite symlink、VM内の`/etc/hosts`管理行を変更します。public modeではmarker付きのCertbot deploy hookも管理します。markerのない既存設定は上書きしません。Labのclone自体は別場所へコピーしないため、配備中は移動・削除しないでください。
 
-同じ引数での再実行は安全です。固定revisionを再確認し、migrationと冪等なtable初期化を再適用し、既存の秘密値・SQLite・互換なAnchor登録を保持します。Anchorが異なるIdentity、Location、Lifecycle、Manifest modeですでに存在する場合、Resolver checkoutに未コミット変更がある場合、または同名の管理対象外Apache siteがある場合は上書きせず失敗します。Apacheは`apache2ctl configtest`成功後だけreloadし、後続検証が失敗した場合は以前のsite設定へ戻します。
+同じ引数での再実行は安全です。固定revisionを再確認し、migrationと冪等なtable初期化を再適用し、既存の秘密値・SQLite・互換なAnchor登録を保持します。Anchorが異なるIdentity、Location、Lifecycle、Manifest modeですでに存在する場合、Resolver checkoutに未コミット変更がある場合、同名の管理対象外Apache site、hardening設定、Certbot hookがある場合は上書きせず失敗します。Apacheは`apache2ctl configtest`成功後だけreloadし、後続検証が失敗した場合は以前のApache、PHP security、hosts、管理対象hookの状態へ戻します。
 
 ### 削除
 
@@ -322,12 +324,17 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
     ServerName lab.example
     DocumentRoot /var/www/relink-reference-lab/public
 
-    <Directory /var/www/relink-reference-lab/public>
-        AllowOverride All
-        Require all granted
-    </Directory>
+   <Directory /var/www/relink-reference-lab/public>
+       AllowOverride All
+       Require all granted
+   </Directory>
 
-    # AR-XMLとResolver-mediated fetchを許可する。必要なら本番のUI originへ限定する。
+    # 実行面は非公開にし、必要な場合だけ信頼する CIDR へ置き換える。
+    <LocationMatch "^/(api|device)(/|$)">
+        Require local
+    </LocationMatch>
+
+   # AR-XMLとResolver-mediated fetchを許可する。必要なら本番のUI originへ限定する。
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
     Header always set X-Content-Type-Options "nosniff"

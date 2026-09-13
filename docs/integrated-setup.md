@@ -56,11 +56,13 @@ sudo ./scripts/setup-linux.sh \
   --certificate-key-file /etc/letsencrypt/live/relink/privkey.pem
 ```
 
+In `public` mode, `/api/` and `/device/` are restricted to localhost by default. To enable physical execution from a controlled network, pass `--execution-allowlist` with explicit CIDRs. Do not expose these routes to the whole Internet; TLS does not provide authorization.
+
 ### Changes and safe reruns
 
-The script modifies APT packages, the Resolver checkout, both data directories, `/etc/relink-reference-lab`, `/etc/apache2/sites-available/relink-*.conf`, corresponding enabled-site symlinks, and one managed line in the VM's `/etc/hosts`. It does not copy the Lab clone elsewhere, so keep that clone in place while deployed.
+The script modifies APT packages, the Resolver checkout, both data directories, `/etc/relink-reference-lab`, the managed Apache hardening/PHP security configuration, `/etc/apache2/sites-available/relink-*.conf`, corresponding enabled-site symlinks, and one managed line in the VM's `/etc/hosts`. In public mode it also manages the marked Certbot deploy hook. Unmarked existing configuration is never overwritten. It does not copy the Lab clone elsewhere, so keep that clone in place while deployed.
 
-Rerunning with the same arguments is safe. The script re-verifies the pinned revision, reapplies migrations and idempotent table initialization, and preserves existing secrets, SQLite data, and a compatible Anchor registration. It fails instead of changing an Anchor with a different identity, location, lifecycle, or Manifest mode; a Resolver checkout with local changes; or an unrelated Apache site with the same name. Apache reload occurs only after `apache2ctl configtest`, and a later verification failure restores the previous site configuration.
+Rerunning with the same arguments is safe. The script re-verifies the pinned revision, reapplies migrations and idempotent table initialization, and preserves existing secrets, SQLite data, and a compatible Anchor registration. It fails instead of changing an Anchor with a different identity, location, lifecycle, or Manifest mode; a Resolver checkout with local changes; an unrelated Apache site with the same name; an unmanaged hardening file; or an unmanaged Certbot hook. Apache reload occurs only after `apache2ctl configtest`, and a later verification failure restores the previous Apache, PHP security, hosts, and managed-hook state.
 
 ### Removal
 
@@ -277,6 +279,11 @@ DEVICE_COMMAND_TIMEOUT=8
         AllowOverride All
         Require all granted
     </Directory>
+
+    # Keep the execution surface private; replace with an explicit trusted CIDR only when required.
+    <LocationMatch "^/(api|device)(/|$)">
+        Require local
+    </LocationMatch>
 
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"

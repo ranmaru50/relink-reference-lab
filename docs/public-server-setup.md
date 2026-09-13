@@ -133,6 +133,20 @@ sudo ./scripts/setup-linux.sh \
 
 The script validates that the certificate covers both host names, runs `apache2ctl configtest`, enables the TLS virtual hosts, and reloads Apache. It also installs a Certbot deploy hook so successful renewals automatically trigger the same configuration test and reload.
 
+In `public` mode, the default execution allowlist separates the public UI/AR-XML surface from execution: `/api/` and `/device/` are reachable only from localhost. Opt in to external Pico or management-network execution only by specifying explicit CIDRs.
+
+```bash
+sudo ./scripts/setup-linux.sh \
+  --resolver-host resolver.example.com \
+  --lab-host lab.example.com \
+  --tls-mode public \
+  --execution-allowlist 198.51.100.0/24 \
+  --certificate-file /etc/letsencrypt/live/resolver.example.com/fullchain.pem \
+  --certificate-key-file /etc/letsencrypt/live/resolver.example.com/privkey.pem
+```
+
+`198.51.100.0/24` is a documentation example. Replace it with the fixed CIDR of the Pico, VPN, or management network. Full-network entries such as `0.0.0.0/0` or `::/0` are rejected.
+
 ## 7. Verify the deployment
 
 ```bash
@@ -150,6 +164,7 @@ Expected results:
 - The Lab UI and ARXML return HTTP 200.
 - Apache reports `Syntax OK`.
 - Certbot's dry run completes successfully.
+- Without an execution allowlist, external clients receive HTTP 403 for `/api/` and `/device/` in the default public mode.
 
 Also check the certificate name and expiry with `sudo certbot certificates`, and confirm that the systemd `certbot.timer` is enabled. Test both host names from an external network, not only from the server itself.
 
@@ -168,10 +183,11 @@ Do not place resolver administrator credentials in the device image.
 ## 9. Operations and rollback
 
 - Keep the resolver administrator endpoint bound to localhost unless remote administration is explicitly required.
+- In `public` mode, `/api/` and `/device/` are localhost-only by default. Supplying an allowlist enables Capability/device execution only from those CIDRs; HTTPS is not a substitute for authentication or authorization.
 - Protect `/etc/relink-reference-lab/resolver-admin-password` with root-only permissions.
 - Back up `/var/lib/relink-resolver/resolver.sqlite`, `/var/lib/relink-reference-lab/lab.sqlite`, and the relevant `/etc/letsencrypt` files.
 - Monitor Apache, PHP, and resolver logs, certificate expiry, disk usage, and the health of `certbot.timer`.
 - After package or repository updates, rerun the setup script and acceptance check, then inspect `apache2ctl configtest`.
-- For rollback, disable the generated Apache sites, restore the previous certificate paths, and reload Apache only after `apache2ctl configtest` succeeds.
+- If configuration fails, the script restores the previous Apache site, hardening/PHP security, `/etc/hosts`, and managed Certbot hook state. It refuses to overwrite an unmarked existing hook. For manual rollback, restore the previous certificate paths and reload Apache only after `apache2ctl configtest` succeeds.
 
 Never copy the fictional domain or address from this guide into production unchanged.

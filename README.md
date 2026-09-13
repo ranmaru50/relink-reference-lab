@@ -104,6 +104,8 @@ Set the Apache VirtualHost `DocumentRoot` to this repository's `public/` directo
 </Directory>
 ```
 
+For public deployment, keep the execution surface private by adding a `<LocationMatch "^/(api|device)(/|$)">` block with `Require local` or an explicit trusted CIDR. `Require all granted` is for local experiments only; HTTPS does not provide authentication or authorization.
+
 `public/.htaccess` hides PHP filenames from the AR-XML and Web UI and rewrites these public routes:
 
 ```text

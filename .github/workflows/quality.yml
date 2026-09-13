@@ -1,5 +1,5 @@
 # .github/workflows/quality.yml
-# PHP/JavaScript の標準テストと静的解析を CI で実行する。
+# PHP/JavaScript/Python の標準テストと静的解析、Shell の構文検証を CI で実行する。
 
 name: quality
 
@@ -35,3 +35,32 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm lint
+
+  python-and-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --dev
+      - run: uv run pytest
+      - run: uv run ruff check .
+      - run: bash -n scripts/setup-linux.sh
+      - run: shellcheck scripts/setup-linux.sh
+
+  linux-bootstrap:
+    needs: python-and-shell
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the native bootstrap
+        run: |
+          sudo ./scripts/setup-linux.sh \
+            --resolver-host resolver.relink.test \
+            --lab-host lab.relink.test
+      - name: Verify an idempotent rerun
+        run: |
+          sudo ./scripts/setup-linux.sh \
+            --resolver-host resolver.relink.test \
+            --lab-host lab.relink.test

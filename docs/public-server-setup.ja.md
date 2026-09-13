@@ -127,6 +127,20 @@ sudo ./scripts/setup-linux.sh \
 
 スクリプトは証明書の SAN と有効期限を検証し、`apache2ctl configtest` が成功した場合だけ reload します。証明書更新後に Apache を reload する Certbot deploy hook も `/etc/letsencrypt/renewal-hooks/deploy/` に登録します。
 
+`public` mode の既定値では、公開 UI／AR-XML と実行面を分離するため、`/api/` と `/device/` は localhost からだけ許可されます。外部 Pico や管理ネットワークから実行面を利用する場合だけ、許可する CIDR を明示した opt-in を行います。
+
+```bash
+sudo ./scripts/setup-linux.sh \
+  --resolver-host resolver.example.com \
+  --lab-host lab.example.com \
+  --tls-mode public \
+  --execution-allowlist 198.51.100.0/24 \
+  --certificate-file /etc/letsencrypt/live/resolver.example.com/fullchain.pem \
+  --certificate-key-file /etc/letsencrypt/live/resolver.example.com/privkey.pem
+```
+
+`198.51.100.0/24` は文書用の例です。実際の Pico／VPN／管理ネットワークの固定 CIDR に置き換えてください。`0.0.0.0/0` や `::/0` のような全ネットワーク許可は指定できません。
+
 ## 6. 検証
 
 ```bash
@@ -138,7 +152,7 @@ sudo apache2ctl configtest
 sudo certbot renew --dry-run
 ```
 
-期待値は Resolver が `303`（`Location: https://lab.example.com/arxml/pico2w.arxml`）、Lab と AR-XML が `200`、Apache が `Syntax OK`、Certbot の dry-run が成功です。
+期待値は Resolver が `303`（`Location: https://lab.example.com/arxml/pico2w.arxml`）、Lab と AR-XML が `200`、Apache が `Syntax OK`、Certbot の dry-run が成功です。allowlistを指定していない既定のpublic modeでは、外部クライアントから `/api/` と `/device/` が `403` になることも確認してください。
 
 HTTP-01 方式へ切り替えた後は、証明書取得に使った DNS-01 の一時 TXT レコードを削除できます。A レコードは削除しません。
 
@@ -156,8 +170,9 @@ HTTP-01 方式へ切り替えた後は、証明書取得に使った DNS-01 の�
 ## 運用上の注意
 
 - Resolver 管理画面は Apache 設定で localhost からだけ許可しています。
+- `public` mode でも `/api/` と `/device/` は既定で localhost 限定です。allowlist を指定した場合だけ、その CIDR からの Capability／device 実行を許可します。HTTPS は認証・認可の代替ではありません。
 - Resolver 管理パスワードは `/etc/relink-reference-lab/resolver-admin-password` に root 専用で保存されます。文書やログへ転載しません。
 - Certbot timer と deploy hook の稼働を定期的に確認します。
 - SQLite と `/etc/letsencrypt` は定期バックアップします。
 - 公開運用では OS、Apache、PHP、Resolver の更新方針と監視を別途決めます。
-- 設定変更に失敗した場合、スクリプトは Apache site と `/etc/hosts` の直前状態へ戻します。原因を修正して同じコマンドを再実行してください。
+- 設定変更に失敗した場合、スクリプトは Apache site、hardening／PHP security、`/etc/hosts`、管理対象Certbot hookの直前状態へ戻します。markerのない既存hookは上書きせず失敗します。原因を修正して同じコマンドを再実行してください。

@@ -79,3 +79,29 @@ def test_public_tls_installs_a_certbot_deploy_hook() -> None:
 
     assert "renewal-hooks/deploy/relink-reference-lab-apache-reload" in setup
     assert "/usr/bin/systemctl reload apache2" in setup
+    assert "Managed by relink-reference-lab scripts/setup-linux.sh" in setup
+    assert "管理対象外の Certbot deploy hook を上書きしません" in setup
+
+
+def test_public_tls_restricts_execution_and_applies_hardening() -> None:
+    """public mode は実行面を制限し、Resolver Native hardening を再利用する。"""
+    setup = SETUP_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'EXECUTION_ALLOWLIST="${EXECUTION_ALLOWLIST:-local}"' in setup
+    assert 'Require local' in setup
+    assert 'Require ip 127.0.0.1 ${EXECUTION_ALLOWLIST//,/ }' in setup
+    assert 'SetEnv RELINK_ENV $(if [[ "${TLS_MODE}" == "public" ]]' in setup
+    assert "ServerTokens Prod" in setup
+    assert "ServerSignature Off" in setup
+    assert "TraceEnable Off" in setup
+    assert "expose_php = Off" in setup
+    assert 'Strict-Transport-Security "max-age=31536000"' in setup
+    assert "--require-hsts" in setup
+
+
+def test_setup_rejects_zero_timeout_and_unrestricted_allowlist() -> None:
+    """実行待機時間と公開実行面の入力検査が仕様と一致する。"""
+    setup = SETUP_SCRIPT.read_text(encoding="utf-8")
+
+    assert "value + 0 > 0" in setup
+    assert "Execution allowlist に全ネットワークを許可する /0 は指定できません" in setup
