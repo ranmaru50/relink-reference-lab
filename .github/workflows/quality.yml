@@ -76,7 +76,7 @@ jobs:
           test_dir=/tmp/relink-public-acceptance
           install -d -m 0700 "$test_dir"
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$test_dir/ca.key"
-          openssl req -x509 -new -nodes -sha256 -days 1 \
+          openssl req -x509 -new -nodes -sha256 -days 3 \
             -key "$test_dir/ca.key" \
             -subj '/CN=RELink CI test CA' \
             -addext 'basicConstraints=critical,CA:TRUE' \
@@ -91,7 +91,7 @@ jobs:
           extendedKeyUsage=serverAuth
           subjectAltName=DNS:resolver.relink.test,DNS:lab.relink.test
           EOF
-          openssl x509 -req -sha256 -days 1 \
+          openssl x509 -req -sha256 -days 3 \
             -in "$test_dir/server.csr" \
             -CA "$test_dir/ca.crt" -CAkey "$test_dir/ca.key" -CAcreateserial \
             -extfile "$test_dir/server.ext" -out "$test_dir/server.crt"
