@@ -302,8 +302,9 @@ restore_apache_state() {
         cp -a "${WORK_DIRECTORY}/hosts.backup" /etc/hosts
     fi
     if [[ "${APACHE_WAS_ACTIVE}" -eq 1 ]]; then
-        apache2ctl configtest >/dev/null 2>&1 \
-            && systemctl reload apache2 >/dev/null 2>&1 || true
+        if apache2ctl configtest >/dev/null 2>&1; then
+            systemctl reload apache2 >/dev/null 2>&1 || true
+        fi
     else
         systemctl stop apache2 >/dev/null 2>&1 || true
     fi
