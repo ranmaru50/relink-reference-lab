@@ -65,7 +65,7 @@ Python is not the server runtime. PHP serves the Web and Capability/device endpo
 
 ## Setup
 
-On Ubuntu 24.04 or later, or Debian 13 or later, configure Resolver, the AR-XML/Web app, Apache, and SQLite with one command:
+On Ubuntu 24.04 or later, configure Resolver, the AR-XML/Web app, Apache, and SQLite with one command. Debian is not supported by this bootstrap until a compatibility test is added:
 
 ```bash
 sudo ./scripts/setup-linux.sh

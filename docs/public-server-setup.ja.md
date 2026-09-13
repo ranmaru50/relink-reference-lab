@@ -22,7 +22,7 @@ Resolver は `303 See Other` で Lab の AR-XML へ転送します。Resolver �
 
 ## 1. 事前条件
 
-- Ubuntu 24.04 以降（または Debian 13 以降）
+- Ubuntu 24.04 以降。Debian は互換性試験が完了するまで、この bootstrap の対象外です。
 - サーバーの公開 IPv4（文書例: `192.0.2.10`、TEST-NET-1）
 - SSH で sudo を実行できる管理ユーザー
 - DNS と Sakura 側パケットフィルターを変更できる権限
@@ -79,6 +79,15 @@ sudo ./scripts/setup-linux.sh \
 ```
 
 このコマンドは、Apache／PHP 8.3／Composer／SQLite、固定 commit の Resolver、Runtime v0.1.0、SQLite、初期 Anchor、Apache VirtualHost、受け入れ検証を構成します。再実行しても互換する Anchor、データベース、秘密値を保持します。
+
+公開証明書を取得する前に、サーバー外部のクライアントから実行面を確認します。次の2つはどちらも `403` になります。`-k` はこの実験用 CA の確認に限って使用してください。
+
+```bash
+curl -k -o /dev/null -sS -w '%{http_code}\n' https://lab.example.com/api/temperature
+curl -k -o /dev/null -sS -w '%{http_code}\n' 'https://lab.example.com/device/commands?device_id=pico2w-01'
+```
+
+bootstrap が配置する PHP 制限は Apache のグローバルな `conf.d` に適用され、このホストで mod_php を使うすべての VirtualHost に影響します。専用の実験ホストで使用するか、共有ホストでは他の PHP アプリケーションへの影響を確認してください。
 
 ## 4. Certbot の導入と証明書取得
 

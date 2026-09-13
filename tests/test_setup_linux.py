@@ -88,8 +88,10 @@ def test_public_tls_restricts_execution_and_applies_hardening() -> None:
     setup = SETUP_SCRIPT.read_text(encoding="utf-8")
 
     assert 'EXECUTION_ALLOWLIST="${EXECUTION_ALLOWLIST:-local}"' in setup
-    assert 'Require local' in setup
-    assert 'Require ip 127.0.0.1 ${EXECUTION_ALLOWLIST//,/ }' in setup
+    assert 'local execution_require="Require ip 127.0.0.1 ::1"' in setup
+    assert 'if [[ "${EXECUTION_ALLOWLIST}" != "local" ]]' in setup
+    assert 'Require ip 127.0.0.1 ::1 ${EXECUTION_ALLOWLIST//,/ }' in setup
+    assert 'TLS_MODE' in setup
     assert 'local resolver_environment="development"' in setup
     assert 'resolver_environment="production"' in setup
     assert "SetEnv RELINK_ENV ${resolver_environment}" in setup

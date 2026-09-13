@@ -12,7 +12,7 @@ This is an experimental reference setup. Before production use, separately verif
 
 ## Recommended: one-command Linux setup
 
-On Ubuntu 24.04 or later, or Debian 13 or later, run one command from the cloned repository. The manual sections below remain as architecture, troubleshooting, and custom-deployment reference material.
+On Ubuntu 24.04 or later, run one command from the cloned repository. Debian is not supported by this bootstrap until a compatibility test is added. The manual sections below remain as architecture, troubleshooting, and custom-deployment reference material.
 
 ```bash
 sudo ./scripts/setup-linux.sh
@@ -56,7 +56,9 @@ sudo ./scripts/setup-linux.sh \
   --certificate-key-file /etc/letsencrypt/live/relink/privkey.pem
 ```
 
-In `public` mode, `/api/` and `/device/` are restricted to localhost by default. To enable physical execution from a controlled network, pass `--execution-allowlist` with explicit CIDRs. Do not expose these routes to the whole Internet; TLS does not provide authorization.
+In both `local-ca` and `public` modes, `/api/` and `/device/` are restricted to localhost by default. To enable physical execution from a controlled network, pass `--execution-allowlist` with explicit CIDRs. Do not expose these routes to the whole Internet; TLS does not provide authorization.
+
+The managed PHP security file is installed in Apache's global `conf.d` directory, so its limits apply to every Apache VirtualHost using mod_php on this host. Use a dedicated experiment host, or review these limits before sharing the host with unrelated PHP applications.
 
 ### Changes and safe reruns
 

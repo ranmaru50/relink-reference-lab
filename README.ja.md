@@ -73,7 +73,7 @@ Python はサーバー実行環境ではありません。Lab の Web/Capability
 
 ## セットアップ
 
-Ubuntu 24.04以降またはDebian 13以降では、Resolver、AR-XML/Webアプリ、Apache、SQLiteを次の1コマンドで構築できます。
+Ubuntu 24.04以降では、Resolver、AR-XML/Webアプリ、Apache、SQLiteを次の1コマンドで構築できます。Debianは互換性試験が完了するまで、このbootstrapの対象外です。
 
 ```bash
 sudo ./scripts/setup-linux.sh

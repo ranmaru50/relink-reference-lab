@@ -23,7 +23,7 @@ All domains and IP addresses in this document are fictional documentation values
 
 ## 1. Prerequisites
 
-- Ubuntu 24.04 or later (Debian 13 or later is also suitable).
+- Ubuntu 24.04 or later. Debian is not supported by this bootstrap until a compatibility test is added.
 - A public IPv4 address, represented here by `192.0.2.10`.
 - A sudo-capable SSH account.
 - Permission to edit DNS records and the provider's packet filter.
@@ -80,6 +80,15 @@ sudo ./scripts/setup-linux.sh \
 The script installs the required packages, pins and installs the resolver runtime, creates both SQLite databases, registers the Anchor, writes Apache virtual hosts, and runs an acceptance check. It is designed to be idempotent, so rerunning it after a failed or interrupted step is supported.
 
 The local certificate is suitable for initial smoke tests only. Public browsers will not trust it.
+
+Before requesting the public certificate, test the execution surface from a client outside the server. Both requests must return `403`; `-k` is acceptable only for this local-CA bootstrap check:
+
+```bash
+curl -k -o /dev/null -sS -w '%{http_code}\n' https://lab.example.com/api/temperature
+curl -k -o /dev/null -sS -w '%{http_code}\n' 'https://lab.example.com/device/commands?device_id=pico2w-01'
+```
+
+The bootstrap also installs PHP limits in Apache's global `conf.d`. They affect every mod_php VirtualHost on this host, so use a dedicated experiment host or review the impact before sharing the machine with unrelated PHP applications.
 
 ## 5. Obtain a Let's Encrypt certificate
 

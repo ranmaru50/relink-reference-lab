@@ -12,7 +12,7 @@
 
 ## 推奨: Linux 一括セットアップ
 
-Ubuntu 24.04以降またはDebian 13以降では、cloneしたリポジトリから次の1コマンドを実行します。以降の手動手順は、構成の理解、障害調査、独自配備の参照用です。
+Ubuntu 24.04以降では、cloneしたリポジトリから次の1コマンドを実行します。Debianは互換性試験が完了するまで、このbootstrapの対象外です。以降の手動手順は、構成の理解、障害調査、独自配備の参照用です。
 
 ```bash
 sudo ./scripts/setup-linux.sh
@@ -56,7 +56,9 @@ sudo ./scripts/setup-linux.sh \
   --certificate-key-file /etc/letsencrypt/live/relink/privkey.pem
 ```
 
-`public` mode では、`/api/` と `/device/` を既定で localhost に制限します。物理実行を管理ネットワークから許可する場合だけ、`--execution-allowlist` へ明示的な CIDR を指定してください。これらの route をインターネット全体へ公開しないでください。TLS は認証・認可を提供しません。
+`local-ca` と `public` の両 mode で、`/api/` と `/device/` を既定で localhost に制限します。物理実行を管理ネットワークから許可する場合だけ、`--execution-allowlist` へ明示的な CIDR を指定してください。これらの route をインターネット全体へ公開しないでください。TLS は認証・認可を提供しません。
+
+管理対象の PHP security ファイルは Apache のグローバルな `conf.d` に配置されるため、このホストで mod_php を使うすべての Apache VirtualHost に制限が適用されます。専用の実験ホストで使用するか、共有ホストでは他の PHP アプリケーションへの影響を確認してください。
 
 ### 変更されるものと再実行
 

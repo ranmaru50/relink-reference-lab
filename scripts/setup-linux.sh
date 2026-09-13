@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/setup-linux.sh
-# Debian/Ubuntu 系ホストへ Resolver と Reference Lab を一括構築する。
+# Ubuntu 24.04 以降のホストへ Resolver と Reference Lab を一括構築する。
 
 set -Eeuo pipefail
 
@@ -69,7 +69,7 @@ usage() {
   --certificate-file PATH       public mode の証明書 chain
   --certificate-key-file PATH   public mode の秘密鍵
   --resolver-admin-username ID  Resolver 管理ユーザー名
-  --execution-allowlist LIST    public mode の /api/ と /device/ の許可元（local または CIDRをカンマ区切り）
+  --execution-allowlist LIST    /api/ と /device/ の許可元（local または CIDRをカンマ区切り）
   --help                        このヘルプを表示
 
 local-ca は実験専用 CA を生成し、VM 自身の検証だけで信頼します。通常の Web PKI と
@@ -249,12 +249,8 @@ validate_supported_system() {
             dpkg --compare-versions "${VERSION_ID:-0}" ge "24.04" \
                 || fail "Ubuntu 24.04 以降だけをサポートします。"
             ;;
-        debian)
-            dpkg --compare-versions "${VERSION_ID:-0}" ge "13" \
-                || fail "Debian 13 以降だけをサポートします。"
-            ;;
         *)
-            fail "未対応の Linux distribution です: ${ID:-unknown}"
+            fail "未対応の Linux distribution です。Ubuntu 24.04 以降だけをサポートします: ${ID:-unknown}"
             ;;
     esac
 }
@@ -443,17 +439,17 @@ write_apache_sites() {
     local lab_config="${WORK_DIRECTORY}/relink-reference-lab.conf"
     local hardening_config="${WORK_DIRECTORY}/relink-reference-lab-hardening.conf"
     local resolver_database="${RESOLVER_DATA_PATH}/resolver.sqlite"
-    local execution_require="Require all granted"
+    # TLS モードに関係なく、実行面はループバックだけを既定で許可する。
+    local execution_require="Require ip 127.0.0.1 ::1"
     local hsts_header=""
     local resolver_environment="development"
 
+    if [[ "${EXECUTION_ALLOWLIST}" != "local" ]]; then
+        execution_require="Require ip 127.0.0.1 ::1 ${EXECUTION_ALLOWLIST//,/ }"
+    fi
+
     if [[ "${TLS_MODE}" == "public" ]]; then
         resolver_environment="production"
-        if [[ "${EXECUTION_ALLOWLIST}" == "local" ]]; then
-            execution_require="Require local"
-        else
-            execution_require="Require ip 127.0.0.1 ${EXECUTION_ALLOWLIST//,/ }"
-        fi
         hsts_header='    Header always set Strict-Transport-Security "max-age=31536000"'
     fi
 

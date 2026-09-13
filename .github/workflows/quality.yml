@@ -70,3 +70,67 @@ jobs:
           sudo ./scripts/setup-linux.sh \
             --resolver-host resolver.relink.test \
             --lab-host lab.relink.test
+      - name: Prepare a self-managed CA for public-mode acceptance
+        run: |
+          set -euxo pipefail
+          test_dir=/tmp/relink-public-acceptance
+          install -d -m 0700 "$test_dir"
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$test_dir/ca.key"
+          openssl req -x509 -new -nodes -sha256 -days 1 \
+            -key "$test_dir/ca.key" \
+            -subj '/CN=RELink CI test CA' \
+            -addext 'basicConstraints=critical,CA:TRUE' \
+            -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+            -out "$test_dir/ca.crt"
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$test_dir/server.key"
+          openssl req -new -sha256 -key "$test_dir/server.key" \
+            -subj '/CN=lab.relink.test' -out "$test_dir/server.csr"
+          cat > "$test_dir/server.ext" <<'EOF'
+          basicConstraints=critical,CA:FALSE
+          keyUsage=critical,digitalSignature,keyEncipherment
+          extendedKeyUsage=serverAuth
+          subjectAltName=DNS:resolver.relink.test,DNS:lab.relink.test
+          EOF
+          openssl x509 -req -sha256 -days 1 \
+            -in "$test_dir/server.csr" \
+            -CA "$test_dir/ca.crt" -CAkey "$test_dir/ca.key" -CAcreateserial \
+            -extfile "$test_dir/server.ext" -out "$test_dir/server.crt"
+          sudo install -m 0644 "$test_dir/ca.crt" /usr/local/share/ca-certificates/relink-public-acceptance.crt
+          sudo update-ca-certificates
+      - name: Run public-mode bootstrap and verify an idempotent rerun
+        run: |
+          set -euxo pipefail
+          cd /opt/relink/relink-reference-lab
+          sudo ./scripts/setup-linux.sh \
+            --resolver-host resolver.relink.test \
+            --lab-host lab.relink.test \
+            --tls-mode public \
+            --execution-allowlist local \
+            --certificate-file /tmp/relink-public-acceptance/server.crt \
+            --certificate-key-file /tmp/relink-public-acceptance/server.key
+          sudo ./scripts/setup-linux.sh \
+            --resolver-host resolver.relink.test \
+            --lab-host lab.relink.test \
+            --tls-mode public \
+            --execution-allowlist local \
+            --certificate-file /tmp/relink-public-acceptance/server.crt \
+            --certificate-key-file /tmp/relink-public-acceptance/server.key
+      - name: Verify public execution routes reject a non-loopback source
+        run: |
+          set -euxo pipefail
+          sudo ip address add 192.0.2.2/32 dev lo
+          trap 'sudo ip address del 192.0.2.2/32 dev lo || true' EXIT
+          api_status="$(curl --silent --show-error \
+            --cacert /tmp/relink-public-acceptance/ca.crt \
+            --interface 192.0.2.2 \
+            --resolve lab.relink.test:443:127.0.0.1 \
+            --output /dev/null --write-out '%{http_code}' \
+            https://lab.relink.test/api/temperature)"
+          device_status="$(curl --silent --show-error \
+            --cacert /tmp/relink-public-acceptance/ca.crt \
+            --interface 192.0.2.2 \
+            --resolve lab.relink.test:443:127.0.0.1 \
+            --output /dev/null --write-out '%{http_code}' \
+            'https://lab.relink.test/device/commands?device_id=pico2w-01')"
+          test "$api_status" = 403
+          test "$device_status" = 403
