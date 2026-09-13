@@ -13,8 +13,9 @@ readonly RESOLVER_SITE_PATH="/etc/apache2/sites-available/relink-resolver.conf"
 readonly LAB_SITE_PATH="/etc/apache2/sites-available/relink-reference-lab.conf"
 readonly RESOLVER_SITE_LINK="/etc/apache2/sites-enabled/relink-resolver.conf"
 readonly LAB_SITE_LINK="/etc/apache2/sites-enabled/relink-reference-lab.conf"
-readonly APACHE_HARDENING_CONF_PATH="/etc/apache2/conf-available/relink-reference-lab-hardening.conf"
-readonly APACHE_HARDENING_CONF_LINK="/etc/apache2/conf-enabled/relink-reference-lab-hardening.conf"
+readonly APACHE_HARDENING_CONF_NAME="zz-relink-reference-lab-hardening"
+readonly APACHE_HARDENING_CONF_PATH="/etc/apache2/conf-available/${APACHE_HARDENING_CONF_NAME}.conf"
+readonly APACHE_HARDENING_CONF_LINK="/etc/apache2/conf-enabled/${APACHE_HARDENING_CONF_NAME}.conf"
 readonly CERTBOT_HOOK_PATH="/etc/letsencrypt/renewal-hooks/deploy/relink-reference-lab-apache-reload"
 readonly SETUP_MARKER="# Managed by relink-reference-lab scripts/setup-linux.sh"
 
@@ -284,9 +285,9 @@ restore_apache_state() {
         fi
     fi
     if [[ "${APACHE_HARDENING_WAS_ENABLED}" -eq 0 ]]; then
-        a2disconf relink-reference-lab-hardening >/dev/null 2>&1 || true
+        a2disconf "${APACHE_HARDENING_CONF_NAME}" >/dev/null 2>&1 || true
     else
-        a2enconf relink-reference-lab-hardening >/dev/null 2>&1 || true
+        a2enconf "${APACHE_HARDENING_CONF_NAME}" >/dev/null 2>&1 || true
     fi
     if [[ "${RESOLVER_SITE_WAS_ENABLED}" -eq 0 ]]; then
         a2dissite relink-resolver >/dev/null 2>&1 || true
@@ -598,7 +599,7 @@ EOF
     install -o root -g root -m 0644 "${WORK_DIRECTORY}/hosts" /etc/hosts
 
     a2enmod env rewrite headers reqtimeout ssl >/dev/null
-    a2enconf relink-reference-lab-hardening >/dev/null
+    a2enconf "${APACHE_HARDENING_CONF_NAME}" >/dev/null
     a2ensite relink-resolver relink-reference-lab >/dev/null
     apache2ctl configtest
     if systemctl is-active --quiet apache2; then
