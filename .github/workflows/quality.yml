@@ -96,6 +96,9 @@ jobs:
             -CA "$test_dir/ca.crt" -CAkey "$test_dir/ca.key" -CAcreateserial \
             -extfile "$test_dir/server.ext" -out "$test_dir/server.crt"
           sudo install -m 0644 "$test_dir/ca.crt" /usr/local/share/ca-certificates/relink-public-acceptance.crt
+          sudo install -d -m 0755 /etc/relink-reference-lab/tls
+          sudo install -m 0644 "$test_dir/server.crt" /etc/relink-reference-lab/tls/public-acceptance.crt
+          sudo install -m 0600 "$test_dir/server.key" /etc/relink-reference-lab/tls/public-acceptance.key
           sudo update-ca-certificates
       - name: Run public-mode bootstrap and verify an idempotent rerun
         run: |
@@ -106,15 +109,15 @@ jobs:
             --lab-host lab.relink.test \
             --tls-mode public \
             --execution-allowlist local \
-            --certificate-file /tmp/relink-public-acceptance/server.crt \
-            --certificate-key-file /tmp/relink-public-acceptance/server.key
+            --certificate-file /etc/relink-reference-lab/tls/public-acceptance.crt \
+            --certificate-key-file /etc/relink-reference-lab/tls/public-acceptance.key
           sudo ./scripts/setup-linux.sh \
             --resolver-host resolver.relink.test \
             --lab-host lab.relink.test \
             --tls-mode public \
             --execution-allowlist local \
-            --certificate-file /tmp/relink-public-acceptance/server.crt \
-            --certificate-key-file /tmp/relink-public-acceptance/server.key
+            --certificate-file /etc/relink-reference-lab/tls/public-acceptance.crt \
+            --certificate-key-file /etc/relink-reference-lab/tls/public-acceptance.key
       - name: Verify public execution routes reject a non-loopback source
         run: |
           set -euxo pipefail
