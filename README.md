@@ -65,7 +65,15 @@ Python is not the server runtime. PHP serves the Web and Capability/device endpo
 
 ## Setup
 
-For an end-to-end setup of the Resolver, AR-XML/Web app, and Pico 2 W, see [the integrated setup guide](docs/integrated-setup.md) ([日本語](docs/integrated-setup.ja.md)). The shorter Apache/PHP setup is available in [docs/setup.md](docs/setup.md) ([日本語](docs/setup.ja.md)).
+On Ubuntu 24.04 or later, or Debian 13 or later, configure Resolver, the AR-XML/Web app, Apache, and SQLite with one command:
+
+```bash
+sudo ./scripts/setup-linux.sh
+```
+
+See the [integrated setup guide](docs/integrated-setup.md) for defaults, the development-only CA, public TLS, reruns, removal, and Pico steps ([日本語](docs/integrated-setup.ja.md)). The shorter manual Apache/PHP reference is available in [docs/setup.md](docs/setup.md) ([日本語](docs/setup.ja.md)).
+
+See the [public server setup guide](docs/public-server-setup.md) for a fictionalized end-to-end deployment example ([日本語](docs/public-server-setup.ja.md)).
 
 ### 1. Download Runtime 0.1.0
 
