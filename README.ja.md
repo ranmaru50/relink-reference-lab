@@ -73,7 +73,15 @@ Python はサーバー実行環境ではありません。Lab の Web/Capability
 
 ## セットアップ
 
-Resolver、AR-XML/Webアプリ、Pico 2 Wをまとめて構築する場合は、[統合セットアップ手順](docs/integrated-setup.ja.md)を参照してください。[英語版](docs/integrated-setup.md)も利用できます。
+Ubuntu 24.04以降では、Resolver、AR-XML/Webアプリ、Apache、SQLiteを次の1コマンドで構築できます。Debianは互換性試験が完了するまで、このbootstrapの対象外です。
+
+```bash
+sudo ./scripts/setup-linux.sh
+```
+
+既定値、実験専用CA、公開TLS、再実行、削除、Pico側の手順は[統合セットアップ手順](docs/integrated-setup.ja.md)を参照してください。[英語版](docs/integrated-setup.md)も利用できます。
+
+実サーバー名は記載せず、架空の `example.com` と `192.0.2.10` を使用した公開配備例を[公開サーバー設定ガイド](docs/public-server-setup.ja.md)にまとめています。[英語版](docs/public-server-setup.md)も利用できます。実環境では自分のドメインと IP アドレスに置き換えてください。
 
 ### 1. Runtime 0.1.0 を取得
 
@@ -103,6 +111,8 @@ Apache VirtualHost の `DocumentRoot` をこのリポジトリの `public/` に�
     Require all granted
 </Directory>
 ```
+
+公開配備では、`<LocationMatch "^/(api|device)(/|$)">` に `Require local` または明示的な信頼済み CIDR を指定して実行面を制限してください。`Require all granted` はローカル実験用です。HTTPS は認証・認可を提供しません。
 
 `public/.htaccess` が、PHP の実ファイル名を AR-XML と Web UI に露出させず、次の公開 route へ rewrite します。
 

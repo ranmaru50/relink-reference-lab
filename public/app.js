@@ -4,6 +4,10 @@
 import { ARRuntime } from "./runtime-loader.js";
 
 const anchorInput = document.querySelector("#anchor-url");
+const configuredAnchorUrl = globalThis.RELINK_LAB_CONFIG?.anchorUrl;
+if (typeof configuredAnchorUrl === "string" && configuredAnchorUrl !== "") {
+  anchorInput.value = configuredAnchorUrl;
+}
 const languageSelect = document.querySelector("#language-select");
 const loadButton = document.querySelector("#load-button");
 const status = document.querySelector("#status");

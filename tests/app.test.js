@@ -27,6 +27,7 @@ describe("RELink Web UI", () => {
   let temperatureInvoke;
 
   beforeEach(async () => {
+    delete globalThis.RELINK_LAB_CONFIG;
     window.localStorage.clear();
     document.body.innerHTML = page;
     vi.resetModules();
@@ -86,5 +87,17 @@ describe("RELink Web UI", () => {
     document.querySelector("#load-button").click();
     await vi.waitFor(() => expect(document.querySelector("#status").textContent).toContain("ロード成功"));
     expect(document.querySelector("#load-button").textContent).toBe("Entityを読み込む");
+  });
+
+  it("uses the Anchor URL supplied by the server configuration", async () => {
+    const configuredUrl =
+      "https://resolver.relink.test/relink/550e8400-e29b-41d4-a716-446655440000";
+    globalThis.RELINK_LAB_CONFIG = { anchorUrl: configuredUrl };
+    document.body.innerHTML = page;
+    vi.resetModules();
+
+    await import("../public/app.js");
+
+    expect(document.querySelector("#anchor-url").value).toBe(configuredUrl);
   });
 });

@@ -1,0 +1,2 @@
+# Linux で直接実行するシェルスクリプトは LF を維持する。
+*.sh text eol=lf

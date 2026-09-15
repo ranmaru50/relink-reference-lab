@@ -10,6 +10,80 @@ This guide combines three repositories so a physical Pico 2 W Entity can be oper
 
 This is an experimental reference setup. Before production use, separately verify TLS certificates, administration access control, secret storage, backups, and certificate validation on real Pico hardware.
 
+## Recommended: one-command Linux setup
+
+On Ubuntu 24.04 or later, run one command from the cloned repository. Debian is not supported by this bootstrap until a compatibility test is added. The manual sections below remain as architecture, troubleshooting, and custom-deployment reference material.
+
+```bash
+sudo ./scripts/setup-linux.sh
+```
+
+| Setting | Default |
+| --- | --- |
+| Resolver host | `resolver.relink.test` |
+| Lab host | `lab.relink.test` |
+| Anchor UUID | `550e8400-e29b-41d4-a716-446655440000` |
+| Device ID | `pico2w-01` |
+| Resolver checkout | `/opt/relink/relink-resolver` |
+| Resolver data | `/var/lib/relink-resolver` |
+| Lab data | `/var/lib/relink-reference-lab` |
+| Lab application | the clone containing `setup-linux.sh` |
+
+The script installs only the required APT packages and acquires the official external `relink-resolver` checkout pinned to commit `b790ac9770975b39b488a104125dc6510e1f54bf`. It then configures production Composer dependencies for Resolver and Lab, Runtime v0.1.0, both SQLite stores, two Apache HTTPS VirtualHosts, and the sample ACTIVE Anchor. Resolver source is not copied into the Lab and both databases remain outside DocumentRoot.
+
+The default `local-ca` mode creates a development-only CA and server certificate once under `/etc/relink-reference-lab/tls`. This is not equivalent to normal Web PKI and is not for public deployment. Automated checks on the VM explicitly trust only that CA. For LAN clients, add the hosts entry printed at completion and trust the development CA on test clients only. Use public mode when the Pico environment cannot be configured to trust this CA.
+
+Important settings can be changed through environment variables or non-interactive CLI options.
+
+```bash
+sudo ./scripts/setup-linux.sh \
+  --resolver-host resolver.lab.example \
+  --lab-host entity.lab.example \
+  --device-id pico2w-east \
+  --resolver-install-path /opt/relink/relink-resolver \
+  --resolver-data-path /srv/relink/resolver \
+  --lab-data-path /srv/relink/lab
+```
+
+For public deployment, provide an already trusted certificate whose SAN covers both hostnames. The script does not issue a public certificate.
+
+```bash
+sudo ./scripts/setup-linux.sh \
+  --tls-mode public \
+  --resolver-host resolver.example \
+  --lab-host lab.example \
+  --certificate-file /etc/letsencrypt/live/relink/fullchain.pem \
+  --certificate-key-file /etc/letsencrypt/live/relink/privkey.pem
+```
+
+In both `local-ca` and `public` modes, `/api/` and `/device/` are restricted to localhost by default. To enable physical execution from a controlled network, pass `--execution-allowlist` with explicit CIDRs. Do not expose these routes to the whole Internet; TLS does not provide authorization.
+
+The managed PHP security file is installed in Apache's global `conf.d` directory, so its limits apply to every Apache VirtualHost using mod_php on this host. Use a dedicated experiment host, or review these limits before sharing the host with unrelated PHP applications.
+
+### Changes and safe reruns
+
+The script modifies APT packages, the Resolver checkout, both data directories, `/etc/relink-reference-lab`, the managed Apache hardening/PHP security configuration, `/etc/apache2/sites-available/relink-*.conf`, corresponding enabled-site symlinks, and one managed line in the VM's `/etc/hosts`. In public mode it also manages the marked Certbot deploy hook. Unmarked existing configuration is never overwritten. It does not copy the Lab clone elsewhere, so keep that clone in place while deployed.
+
+Rerunning with the same arguments is safe. The script re-verifies the pinned revision, reapplies migrations and idempotent table initialization, and preserves existing secrets, SQLite data, and a compatible Anchor registration. It fails instead of changing an Anchor with a different identity, location, lifecycle, or Manifest mode; a Resolver checkout with local changes; an unrelated Apache site with the same name; an unmanaged hardening file; or an unmanaged Certbot hook. Apache reload occurs only after `apache2ctl configtest`, and a later verification failure restores the previous Apache, PHP security, hosts, and managed-hook state.
+
+### Removal
+
+Back up the Resolver and Lab databases first. The following destructive example removes the experimental data. APT packages are retained because other services may share them.
+
+```bash
+sudo a2dissite relink-resolver relink-reference-lab
+sudo apache2ctl configtest && sudo systemctl reload apache2
+sudo rm -f /etc/apache2/sites-available/relink-resolver.conf
+sudo rm -f /etc/apache2/sites-available/relink-reference-lab.conf
+sudo rm -rf /opt/relink/relink-resolver
+sudo rm -rf /var/lib/relink-resolver
+sudo rm -rf /var/lib/relink-reference-lab
+sudo rm -rf /etc/relink-reference-lab
+sudo sed -i '/# relink-reference-lab setup-linux$/d' /etc/hosts
+```
+
+After setup succeeds, the remaining manual work is client name resolution/development-CA trust (local-ca mode only), plus Pico Wi-Fi, `GATEWAY_URL`, `DEVICE_ID`, and firmware transfer.
+
 ## 1. Target topology
 
 Replace example hostnames with real DNS names.
@@ -207,6 +281,11 @@ DEVICE_COMMAND_TIMEOUT=8
         AllowOverride All
         Require all granted
     </Directory>
+
+    # Keep the execution surface private; replace with an explicit trusted CIDR only when required.
+    <LocationMatch "^/(api|device)(/|$)">
+        Require local
+    </LocationMatch>
 
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"

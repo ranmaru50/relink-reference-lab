@@ -10,6 +10,80 @@
 
 この手順は実験用・参照用です。本番環境では、TLS証明書、管理面のアクセス制御、秘密情報の保管、バックアップ、Pico実機の証明書検証を別途確認してください。
 
+## 推奨: Linux 一括セットアップ
+
+Ubuntu 24.04以降では、cloneしたリポジトリから次の1コマンドを実行します。Debianは互換性試験が完了するまで、このbootstrapの対象外です。以降の手動手順は、構成の理解、障害調査、独自配備の参照用です。
+
+```bash
+sudo ./scripts/setup-linux.sh
+```
+
+| 項目 | 既定値 |
+| --- | --- |
+| Resolver host | `resolver.relink.test` |
+| Lab host | `lab.relink.test` |
+| Anchor UUID | `550e8400-e29b-41d4-a716-446655440000` |
+| Device ID | `pico2w-01` |
+| Resolver checkout | `/opt/relink/relink-resolver` |
+| Resolver data | `/var/lib/relink-resolver` |
+| Lab data | `/var/lib/relink-reference-lab` |
+| Lab application | `setup-linux.sh`を実行したclone |
+
+スクリプトは必要なAPTパッケージだけを導入し、外部の公式`relink-resolver`をcommit `b790ac9770975b39b488a104125dc6510e1f54bf`へ固定して取得します。ResolverとLabのComposer production依存関係、Runtime v0.1.0、両SQLite、2つのApache HTTPS VirtualHost、サンプルACTIVE Anchorを順に構成します。Resolver sourceをLabへコピーせず、SQLiteをDocumentRoot外に保ちます。
+
+既定の`local-ca` modeはVM内の`/etc/relink-reference-lab/tls`へ実験専用CAとサーバー証明書を一度だけ生成します。これは通常のWeb PKIと同等ではなく、公開利用向けではありません。VM自身の自動検証ではこのCAだけを明示的に信頼します。LANクライアントから使う場合は、完了時に表示されるhostsエントリをクライアントへ追加し、開発CAを**テスト用クライアントだけ**で信頼してください。PicoへCAを設定できない構成では、後述のpublic modeを使用します。
+
+重要な値は環境変数または非対話CLI引数で変更できます。
+
+```bash
+sudo ./scripts/setup-linux.sh \
+  --resolver-host resolver.lab.example \
+  --lab-host entity.lab.example \
+  --device-id pico2w-east \
+  --resolver-install-path /opt/relink/relink-resolver \
+  --resolver-data-path /srv/relink/resolver \
+  --lab-data-path /srv/relink/lab
+```
+
+公開配備では、両ホスト名をSANに含む信頼済み証明書を指定します。スクリプトは証明書を発行せず、既存ファイルを使用します。
+
+```bash
+sudo ./scripts/setup-linux.sh \
+  --tls-mode public \
+  --resolver-host resolver.example \
+  --lab-host lab.example \
+  --certificate-file /etc/letsencrypt/live/relink/fullchain.pem \
+  --certificate-key-file /etc/letsencrypt/live/relink/privkey.pem
+```
+
+`local-ca` と `public` の両 mode で、`/api/` と `/device/` を既定で localhost に制限します。物理実行を管理ネットワークから許可する場合だけ、`--execution-allowlist` へ明示的な CIDR を指定してください。これらの route をインターネット全体へ公開しないでください。TLS は認証・認可を提供しません。
+
+管理対象の PHP security ファイルは Apache のグローバルな `conf.d` に配置されるため、このホストで mod_php を使うすべての Apache VirtualHost に制限が適用されます。専用の実験ホストで使用するか、共有ホストでは他の PHP アプリケーションへの影響を確認してください。
+
+### 変更されるものと再実行
+
+スクリプトはAPT package、Resolver checkout、2つのデータディレクトリ、`/etc/relink-reference-lab`、管理対象のApache hardening／PHP security設定、`/etc/apache2/sites-available/relink-*.conf`、対応するsite symlink、VM内の`/etc/hosts`管理行を変更します。public modeではmarker付きのCertbot deploy hookも管理します。markerのない既存設定は上書きしません。Labのclone自体は別場所へコピーしないため、配備中は移動・削除しないでください。
+
+同じ引数での再実行は安全です。固定revisionを再確認し、migrationと冪等なtable初期化を再適用し、既存の秘密値・SQLite・互換なAnchor登録を保持します。Anchorが異なるIdentity、Location、Lifecycle、Manifest modeですでに存在する場合、Resolver checkoutに未コミット変更がある場合、同名の管理対象外Apache site、hardening設定、Certbot hookがある場合は上書きせず失敗します。Apacheは`apache2ctl configtest`成功後だけreloadし、後続検証が失敗した場合は以前のApache、PHP security、hosts、管理対象hookの状態へ戻します。
+
+### 削除
+
+まずResolverとLabのSQLiteをバックアップしてください。次は実験環境のデータを削除する破壊的な例です。APT packageは他サービスと共有される可能性があるため削除しません。
+
+```bash
+sudo a2dissite relink-resolver relink-reference-lab
+sudo apache2ctl configtest && sudo systemctl reload apache2
+sudo rm -f /etc/apache2/sites-available/relink-resolver.conf
+sudo rm -f /etc/apache2/sites-available/relink-reference-lab.conf
+sudo rm -rf /opt/relink/relink-resolver
+sudo rm -rf /var/lib/relink-resolver
+sudo rm -rf /var/lib/relink-reference-lab
+sudo rm -rf /etc/relink-reference-lab
+sudo sed -i '/# relink-reference-lab setup-linux$/d' /etc/hosts
+```
+
+完了後に残る手作業は、クライアントの名前解決／開発CA信頼（local-ca modeのみ）と、PicoのWi-Fi、`GATEWAY_URL`、`DEVICE_ID`、firmware転送です。
+
 ## 1. 完成後の構成
 
 ホスト名は例です。実際のDNS名に置き換えてください。
@@ -252,12 +326,17 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
     ServerName lab.example
     DocumentRoot /var/www/relink-reference-lab/public
 
-    <Directory /var/www/relink-reference-lab/public>
-        AllowOverride All
-        Require all granted
-    </Directory>
+   <Directory /var/www/relink-reference-lab/public>
+       AllowOverride All
+       Require all granted
+   </Directory>
 
-    # AR-XMLとResolver-mediated fetchを許可する。必要なら本番のUI originへ限定する。
+    # 実行面は非公開にし、必要な場合だけ信頼する CIDR へ置き換える。
+    <LocationMatch "^/(api|device)(/|$)">
+        Require local
+    </LocationMatch>
+
+   # AR-XMLとResolver-mediated fetchを許可する。必要なら本番のUI originへ限定する。
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
     Header always set X-Content-Type-Options "nosniff"
