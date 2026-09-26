@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from scripts.apache_acceptance import run
 
 ANCHOR_UUID = "550e8400-e29b-41d4-a716-446655440000"
-RUNTIME_BODY = b"export const runtimeVersion = '0.1.0';\n"
+RUNTIME_BODY = b"export const runtimeVersion = '0.2.0';\n"
 
 
 class AcceptanceHandler(BaseHTTPRequestHandler):

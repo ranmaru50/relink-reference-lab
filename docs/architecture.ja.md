@@ -12,7 +12,9 @@ existing relink-resolver (Apache + PHP + SQLite)
   ↓ 303 Location: https://lab-host/arxml/pico2w.arxml
 Apache static AR-XML
   ↓
-Browser + RELink Web Runtime 0.1.0
+Browser + RELink Web Runtime 0.2.0 (AR-XML Draft 5)
+  ↓ local exact-identity lookup
+Contract / Profile definition fixture
   ↓ explicit RuntimeCapability.invoke()
 
 Execution plane
@@ -25,12 +27,15 @@ Human → Web App → PHP Capability API
 
 Resolver Core は UUID から current Description Location を返すだけです。Lab 内に `/relink/{uuid}` の Resolver 実装はありません。Resolver は AR-XML、Gateway、Pico の IP、Capability API を知りません。
 
+Entity Resolution は AR-XML の場所までです。意味定義の解決と Profile 適合性評価はブラウザー側で別々に行い、UI では Profile Claim、定義の解決状態、評価結果を分けて表示します。
+
 ## Lab の公開面
 
 | 公開 route | PHP 実装 | 役割 |
 | --- | --- | --- |
 | `/` | `public/index.html` | 人間が操作する UI |
 | `/arxml/pico2w.arxml` | 静的ファイル | Entity / Capability / Interface の宣言 |
+| `/definitions/` | 静的 JSON fixture | exact-versioned Capability Contract と Profile 定義 |
 | `/api/light/state` | `public/api/light-state.php` | boolean を enqueue し JSON result を返す |
 | `/api/temperature` | `public/api/temperature.php` | temperature command を enqueue し JSON result を返す |
 | `/device/commands` | `public/device/commands.php` | Pico が次の command を取得 |
@@ -54,7 +59,9 @@ queued/delivered ───→ expired
 
 ## Pico session
 
-Pico は inbound port を開かず、Lab へ polling します。command はこのラボで定義した `light.setState` と `temperature.read` だけです。result POST の HTTP status が 200 以外なら例外として扱い、外側の reconnect/backoff へ戻ります。Wi-Fi 接続も固定時間で打ち切り、永久待機しません。
+Pico は inbound port を開かず、Lab へ polling します。semantic Capability は `indicator.set` と `temperature.read` です。後者は RP2350 MCU 内部温度を表し、周囲温度ではありません。result POST の HTTP status が 200 以外なら例外として扱い、外側の reconnect/backoff へ戻ります。Wi-Fi 接続も固定時間で打ち切り、永久待機しません。
+
+`public/arxml/simulator-controller.arxml` は、異なるローカル Capability ID と HTTP path で同じ `controller-monitor/1` Profile を Claim する別実装例です。物理 Lab に第2の device backend は追加しません。
 
 ## Security boundary
 

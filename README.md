@@ -2,7 +2,7 @@
 
 [日本語版](README.ja.md)
 
-This repository is a minimal L1 reference lab that connects a Raspberry Pi Pico 2 W as a physical entity with the existing RELink Resolver, AR-XML Core 0.1 Draft 4, RELink Web Runtime 0.1.0, Apache + PHP + SQLite, and Pico MicroPython.
+This repository is a minimal L1 reference lab that connects a Raspberry Pi Pico 2 W as a physical entity with the existing RELink Resolver, AR-XML Core 0.1 Draft 5, RELink Web Runtime 0.2.0, Apache + PHP + SQLite, and Pico MicroPython.
 
 This lab is not a replacement for `relink-web-runtime`, `relink-resolver`, or `relink-testbed`. It reuses the existing Apache + PHP + SQLite implementation as a separate Resolver service and provides the AR-XML fixture, Web UI, Capability API, and device command store.
 
@@ -10,9 +10,10 @@ This lab is not a replacement for `relink-web-runtime`, `relink-resolver`, or `r
 
 - The Resolver Core 0.1 L1 path.
 - UUID → `303 See Other` → AR-XML resolution by the existing Resolver.
-- Resolver-mediated loading with Web Runtime 0.1.0.
-- Parsing and validation of the AR-XML Draft 4 fixture used by this lab.
-- Relative Interface URL resolution based on the final AR-XML URL.
+- Resolver-mediated loading with Web Runtime 0.2.0.
+- Native Draft 5 parsing, validation, shared Interface, and InterfaceUse routing.
+- Exact-versioned Contract/Profile fixtures and separate Profile Claim/conformance display.
+- Relative HTTP route resolution based on the final AR-XML URL.
 - Explicit HTTP Capability invocation.
 - A physical output: the Pico onboard LED.
 - A physical input: the RP2350 internal temperature reading.
@@ -29,7 +30,9 @@ existing relink-resolver (Apache + PHP + SQLite)
   ↓ 303
 Lab AR-XML (Apache static file: public/arxml/pico2w.arxml)
   ↓
-Browser + RELink Web Runtime 0.1.0
+Browser + RELink Web Runtime 0.2.0
+  ↓ exact semantic identifiers
+Local Contract/Profile definition fixtures
 
 [Execution]
 Human → Web App → RuntimeCapability.invoke()
@@ -44,11 +47,13 @@ The boundaries are intentional:
 ```text
 Entity      ≠ Location
 Capability  ≠ Interface
+Entity Resolution ≠ Semantic Definition Resolution
+Profile Claim ≠ Profile Conformance
 Description ≠ Execution
 Resolution  ≠ Authentication
 ```
 
-The Resolver maps a UUID to the current AR-XML Description Location. It does not fetch or parse AR-XML and does not execute Capabilities. Web Runtime `load()` is discovery and description; Capability execution happens only when the user presses a button and calls `invoke()`.
+The Resolver maps a UUID to the current AR-XML Description Location. It does not fetch or parse AR-XML, resolve semantic definitions, evaluate Profiles, or execute Capabilities. The browser Runtime resolves the local definition fixtures and evaluates Profile conformance separately from the issuer's claim. Runtime `load()` and evaluation do not execute Capabilities; execution happens only after a user action calls `invoke()`.
 
 ## Requirements
 
@@ -75,15 +80,15 @@ See the [integrated setup guide](docs/integrated-setup.md) for defaults, the dev
 
 See the [public server setup guide](docs/public-server-setup.md) for a fictionalized end-to-end deployment example ([日本語](docs/public-server-setup.ja.md)).
 
-### 1. Download Runtime 0.1.0
+### 1. Download Runtime 0.2.0
 
-Do not copy the Runtime source tree. Download the published standalone ESM asset and verify its SHA-256 digest:
+Do not copy the Runtime source tree. Download the pinned standalone ESM asset and verify its SHA-256 digest:
 
 ```text
 uv run python scripts/download_runtime.py
 ```
 
-The asset is written to `public/vendor/relink-web-runtime.js` and is excluded from Git. The URL and digest are pinned in the download script.
+The asset is written to `public/vendor/relink-web-runtime.js` and is excluded from Git. The script pins the `relink-web-runtime` `ver.0.2.0` commit and SHA-256. The upstream `ver.0.2.0` branch artifact is used until a tagged release is published.
 
 ### 2. Initialize SQLite
 
@@ -154,13 +159,20 @@ TLS/CA verification on real Pico hardware has not been completed in this reposit
 
 1. Open `https://<lab-host>/`.
 2. Select English or 日本語, enter the existing Resolver Anchor URL, and select **Load Entity**.
-3. Confirm that `light` and `temperature` appear.
-4. Select **LED ON**, **LED OFF**, or **Read temperature**.
-5. Confirm the LED state or JSON temperature value.
+3. Confirm that `indicator` and `controller-temperature` appear.
+4. Inspect Profile Claim, Profile Definition, and evaluated conformance as separate values.
+5. Select **LED ON**, **LED OFF**, or **Read controller temperature**.
+6. Confirm the LED state or JSON temperature value.
 
-Loading and discovery never cause a physical operation. The temperature is the RP2350 internal temperature, not an accurate room-temperature sensor reading.
+Loading, semantic definition resolution, and Profile evaluation never cause a physical operation. `controller-temperature` describes the RP2350 internal MCU temperature; it does not claim ambient or room temperature. `public/arxml/simulator-controller.arxml` shows how a different local Capability ID and HTTP path can claim the same Profile.
 
 ## Tests
+
+Download the Runtime asset before running the Runtime integration tests:
+
+```text
+uv run python scripts/download_runtime.py
+```
 
 ```text
 composer install
@@ -188,10 +200,12 @@ The acceptance script checks static AR-XML, rewrite and input validation, OPTION
 - [ ] The Pico connects to the documented Wi-Fi or tethering within the bounded timeout.
 - [ ] The Pico establishes an outbound HTTPS device session.
 - [ ] The Anchor URL resolves through Resolver L1 to the AR-XML URL with `303`.
-- [ ] Web Runtime 0.1.0 loads the Anchor path.
-- [ ] The Web UI displays two Capabilities.
-- [ ] `light.setState(true)` turns the LED on.
-- [ ] `light.setState(false)` turns the LED off.
+- [ ] Web Runtime 0.2.0 loads the Anchor path in its default Draft 5 mode.
+- [ ] The Web UI displays `indicator` and `controller-temperature`.
+- [ ] Profile Claim, Profile Definition resolution, and evaluated conformance appear separately.
+- [ ] Loading, parsing, definition resolution, and Profile evaluation issue no device command.
+- [ ] `indicator.set(on=true)` turns the LED on.
+- [ ] `indicator.set(on=false)` turns the LED off.
 - [ ] `temperature.read()` returns a number.
 - [ ] When the device is stopped, the API returns 504 and the UI displays an error.
 - [ ] Loading alone never executes a Capability.
@@ -209,4 +223,4 @@ The acceptance script checks static AR-XML, rewrite and input validation, OPTION
 
 ## Findings
 
-Observations about relative Draft 4 endpoints, internal temperature, MicroPython TLS/CA behavior, and SQLite sessions are classified in [docs/findings.md](docs/findings.md) ([日本語](docs/findings.ja.md)).
+Observations about Draft 5 routes, internal MCU temperature, MicroPython TLS/CA behavior, and SQLite sessions are classified in [docs/findings.md](docs/findings.md) ([日本語](docs/findings.ja.md)).

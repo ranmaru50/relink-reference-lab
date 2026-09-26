@@ -1,0 +1,19 @@
+{
+  "identifier": "https://relink.dev/capabilities/temperature/read/1",
+  "invocation": {
+    "result": {
+      "outputs": [
+        {
+          "name": "temperature",
+          "type": "number",
+          "unit": "Cel"
+        }
+      ],
+      "representations": [
+        {
+          "mediaType": "application/json"
+        }
+      ]
+    }
+  }
+}

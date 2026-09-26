@@ -8,18 +8,20 @@ import sys
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-# Runtime 0.1.0 の公開 standalone ESM アセットと SHA-256 ダイジェスト。
+# Runtime 0.2.0 standalone ESM アセットと SHA-256 ダイジェスト。
+# Release 作成前の ver.0.2.0 ブランチを完全な commit SHA で固定する。
+RUNTIME_REVISION = "402e378c3cd6aa92355f93a3781c7ddc49c141d5"
 RUNTIME_URL = (
-    "https://github.com/ranmaru50/relink-web-runtime/releases/download/"
-    "v0.1.0/relink-web-runtime.js"
+    "https://raw.githubusercontent.com/ranmaru50/relink-web-runtime/"
+    f"{RUNTIME_REVISION}/dist/relink-web-runtime.js"
 )
-RUNTIME_SHA256 = "f18d739edabc23285abd5fb64fcc056f17aaf480ddd1e0b6bed1702f8aab9e46"
+RUNTIME_SHA256 = "1d8605db4529929d2ee63dde9da407c0a3350abb559751352fd5083ed6f5245a"
 OUTPUT_PATH = Path(__file__).resolve().parents[1] / "public" / "vendor" / "relink-web-runtime.js"
 
 
 def download_runtime() -> Path:
     """Runtime を一時バイト列として取得し、検証後に保存する。"""
-    request = Request(RUNTIME_URL, headers={"User-Agent": "relink-reference-lab/0.1"})
+    request = Request(RUNTIME_URL, headers={"User-Agent": "relink-reference-lab/0.2"})
     with urlopen(request, timeout=30) as response:  # noqa: S310 - URL は上記定数に固定
         content = response.read()
 
@@ -40,7 +42,7 @@ def main() -> int:
         print(f"Failed to download Runtime: {error}", file=sys.stderr)
         return 1
 
-    print(f"Downloaded Runtime 0.1.0: {output_path}")
+    print(f"Downloaded Runtime 0.2.0 ({RUNTIME_REVISION}): {output_path}")
     return 0
 
 

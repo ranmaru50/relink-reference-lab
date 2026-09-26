@@ -1,0 +1,25 @@
+{
+  "identifier": "https://relink.dev/capabilities/indicator/set/1",
+  "invocation": {
+    "inputs": [
+      {
+        "name": "on",
+        "type": "boolean",
+        "required": true
+      }
+    ],
+    "result": {
+      "outputs": [
+        {
+          "name": "state",
+          "type": "boolean"
+        }
+      ],
+      "representations": [
+        {
+          "mediaType": "application/json"
+        }
+      ]
+    }
+  }
+}

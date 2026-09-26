@@ -12,7 +12,9 @@ existing relink-resolver (Apache + PHP + SQLite)
   ↓ 303 Location: https://lab-host/arxml/pico2w.arxml
 Apache static AR-XML
   ↓
-Browser + RELink Web Runtime 0.1.0
+Browser + RELink Web Runtime 0.2.0 (AR-XML Draft 5)
+  ↓ local exact-identity lookup
+Contract and Profile definition fixtures
   ↓ explicit RuntimeCapability.invoke()
 
 Execution plane
@@ -25,12 +27,15 @@ Human → Web App → PHP Capability API
 
 Resolver Core only returns the current Description Location for a UUID. This lab does not implement `/relink/{uuid}`. Resolver does not know the AR-XML, Gateway, Pico IP address, or Capability API.
 
+Entity Resolution ends at the AR-XML location. The browser resolves semantic definitions and evaluates Profile conformance separately. A Profile Claim is displayed independently from its resolved definition and evaluated result.
+
 ## Public Lab surface
 
 | Public route | PHP implementation | Purpose |
 | --- | --- | --- |
 | `/` | `public/index.html` | Human-operated Web UI |
 | `/arxml/pico2w.arxml` | Static file | Entity, Capability, and Interface declarations |
+| `/definitions/` | Static JSON fixtures | Exact-versioned Capability Contracts and Profile definitions |
 | `/api/light/state` | `public/api/light-state.php` | Enqueue a boolean and return the JSON result |
 | `/api/temperature` | `public/api/temperature.php` | Enqueue a temperature command and return the JSON result |
 | `/device/commands` | `public/device/commands.php` | Let the Pico claim its next command |
@@ -54,7 +59,9 @@ Only one result is accepted for a command ID, and a result from another device I
 
 ## Pico session
 
-The Pico does not open an inbound port. It polls the Lab. The only commands defined by this lab are `light.setState` and `temperature.read`. Any result POST other than HTTP 200 is treated as an error and returns to reconnect/backoff. Wi-Fi connection attempts also have a fixed timeout.
+The Pico does not open an inbound port. It polls the Lab. The semantic Capabilities are `indicator.set` and `temperature.read`; the latter describes the RP2350 internal MCU temperature, not ambient temperature. Any result POST other than HTTP 200 is treated as an error and returns to reconnect/backoff. Wi-Fi connection attempts also have a fixed timeout.
+
+The simulator Entity in `public/arxml/simulator-controller.arxml` uses a different local Capability ID and HTTP path while claiming the same `controller-monitor/1` Profile. It documents the interoperability boundary and does not add a second device backend to the physical Lab.
 
 ## Security boundary
 

@@ -1,6 +1,6 @@
 <?php
 // public/api/light-state.php
-/** light.setState Capability の HTTP binding。 */
+/** indicator.set Capability の HTTP binding。 */
 
 declare(strict_types=1);
 
@@ -28,8 +28,8 @@ try {
     if (!is_bool($state)) {
         throw new LabStoreCommandFailed('device result state が boolean ではありません');
     }
-    // Web Runtime の単一 Output 契約に合わせ、成功値は JSON scalar で返す。
-    lab_json_response(200, $state);
+    // Draft 5 の JSON Result は Output 名を持つ object として返す。
+    lab_json_response(200, ['state' => $state]);
 } catch (InvalidArgumentException | JsonException $error) {
     lab_json_response(400, ['error' => $error->getMessage()]);
 } catch (LabStoreTimeout $error) {

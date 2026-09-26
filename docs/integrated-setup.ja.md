@@ -29,7 +29,7 @@ sudo ./scripts/setup-linux.sh
 | Lab data | `/var/lib/relink-reference-lab` |
 | Lab application | `setup-linux.sh`を実行したclone |
 
-スクリプトは必要なAPTパッケージだけを導入し、外部の公式`relink-resolver`をcommit `b790ac9770975b39b488a104125dc6510e1f54bf`へ固定して取得します。ResolverとLabのComposer production依存関係、Runtime v0.1.0、両SQLite、2つのApache HTTPS VirtualHost、サンプルACTIVE Anchorを順に構成します。Resolver sourceをLabへコピーせず、SQLiteをDocumentRoot外に保ちます。
+スクリプトは必要なAPTパッケージだけを導入し、外部の公式`relink-resolver`をcommit `b790ac9770975b39b488a104125dc6510e1f54bf`へ固定して取得します。ResolverとLabのComposer production依存関係、Runtime 0.2.0、両SQLite、2つのApache HTTPS VirtualHost、サンプルACTIVE Anchorを順に構成します。Resolver sourceをLabへコピーせず、SQLiteをDocumentRoot外に保ちます。
 
 既定の`local-ca` modeはVM内の`/etc/relink-reference-lab/tls`へ実験専用CAとサーバー証明書を一度だけ生成します。これは通常のWeb PKIと同等ではなく、公開利用向けではありません。VM自身の自動検証ではこのCAだけを明示的に信頼します。LANクライアントから使う場合は、完了時に表示されるhostsエントリをクライアントへ追加し、開発CAを**テスト用クライアントだけ**で信頼してください。PicoへCAを設定できない構成では、後述のpublic modeを使用します。
 
@@ -294,7 +294,7 @@ uv sync
 uv run python scripts/download_runtime.py
 ```
 
-`download_runtime.py`は、参照先`relink-web-runtime`のv0.1.0 standalone ESM assetを取得し、固定SHA-256を検証して`public/vendor/relink-web-runtime.js`へ配置します。RuntimeのソースツリーをLabの公開DocumentRootへコピーする必要はありません。
+`download_runtime.py`は、`relink-web-runtime`の`ver.0.2.0` commitからstandalone ESM assetを取得し、固定SHA-256を検証して`public/vendor/relink-web-runtime.js`へ配置します。上流にタグ付きReleaseが公開されるまでは、このbranch artifactを使います。RuntimeのソースツリーをLabの公開DocumentRootへコピーする必要はありません。
 
 ### 4.2 SQLiteとPHP実行環境を設定する
 
@@ -348,14 +348,14 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
 
 ### 4.4 AR-XMLを設定する
 
-現在のサンプルは`public/arxml/pico2w.arxml`です。AR-XMLは次のCapabilityを定義します。
+現在のDraft 5サンプルは`public/arxml/pico2w.arxml`です。共有HTTP InterfaceとCapabilityごとのInterfaceUseを使います。
 
 | Capability ID | Interface | 相対endpoint | 入力・出力 |
 | --- | --- | --- | --- |
-| `light` | `POST`、JSON | `../api/light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
-| `temperature` | `GET` | `../api/temperature` | 入力なし → `{ "temperature": number }` |
+| `indicator` (`indicator.set`) | `POST`、JSON | `light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
+| `controller-temperature` (`temperature.read`) | `GET` | `temperature` | 入力なし → `{ "temperature": number }` (RP2350 MCU内部温度) |
 
-相対endpointは、Resolver URLではなく**最終的に取得されたAR-XMLのURL**を基準に解決されます。そのため、次の配置では`../api/...`がLabの`/api/...`になります。
+HTTP baseとoperation pathは、Resolver URLではなく**最終的に取得されたAR-XMLのURL**を基準に解決されます。Entity ResolutionはAR-XMLの場所までです。ブラウザー側ではexact-versioned Contract/Profile fixtureを別に解決し、UIはProfile Claim、定義解決、評価済み適合性を分けて表示します。
 
 ```text
 AR-XML: https://lab.example/arxml/pico2w.arxml
@@ -365,7 +365,7 @@ AR-XML: https://lab.example/arxml/pico2w.arxml
 
 AR-XMLを別ディレクトリへ移す場合は、相対パスがLab APIを指すか確認してください。Picoの`/device/commands`や`/device/results`をAR-XMLに記載してはいけません。これらはPicoとLab command store間の内部通信です。
 
-独自Capabilityを追加する場合は、`id`、semantic `type`、`inputs`、`result.outputs`、`result.representations`、`interfaces`を定義し、対応するPHP endpointとPico側の`execute_command()`を同時に実装します。RuntimeはAR-XML内の任意JavaScriptを実行する仕組みではありません。
+独自Capabilityを追加する場合は、ローカル`id`、exact Contract `type`、必要に応じて`invocation`、Entity共有Interfaceを参照する`interface-uses`を定義し、外部Contract fixtureと対応するPHP endpoint、Pico側の`execute_command()`を実装します。RuntimeはAR-XML内の任意JavaScriptを実行しません。
 
 ### 4.5 Webアプリを設定する
 
@@ -386,12 +386,18 @@ AR-XMLを別ディレクトリへ移す場合は、相対パスがLab APIを指�
 
 4. カスタムUIを追加する場合は、Runtimeの基本形に合わせて`load()`、`getCapability(localId)`、`invoke(inputs, options)`を使用します。
 
+   `conforms-to`はissuerのClaimです。定義解決と適合性評価は`runtimeDocument.evaluateProfile(profileIdentifier)`で別々に確認します。`public/definitions/`のJSONはReference Lab用の暫定fixtureであり、最終的な規範serialization形式ではありません。
+
    ```javascript
    import { ARRuntime } from "@relink/web-runtime";
 
    const runtimeDocument = await new ARRuntime().load(anchorUrl);
-   const light = runtimeDocument.getCapability("light");
-   const result = await light.invoke({ on: true }, { accept: "application/json" });
+   const indicator = runtimeDocument.getCapability("indicator");
+   const route = indicator.evaluation.routes.find((item) => item.availability === "READY");
+   const result = await indicator.invoke({ on: true }, {
+     accept: "application/json",
+     routeId: route.routeId,
+   });
    console.log(result.values);
    ```
 
@@ -491,7 +497,7 @@ Picoは受信待ちサーバーを開かず、Labへoutbound接続します。
 
 1. PicoのシリアルログでWi-Fi接続と例外の有無を確認します。
 2. ブラウザーでLab Webアプリを開き、Resolver Anchor URLを入力して「Entityを読み込む」を押します。
-3. `light`と`temperature`が表示され、ロード直後にcommandが発行されていないことを確認します。
+3. `indicator`と`controller-temperature`、Profile Claim、Definition解決、評価済み適合性を確認します。ロードや評価ではcommandが発行されません。
 4. 「LEDをON」「LEDをOFF」を押し、PicoのオンボードLEDを確認します。
 5. 「温度を読み取る」を押し、数値が表示されることを確認します。
 6. Apacheアクセスログ、LabのSQLite状態、Picoのシリアルログをcommand IDで突き合わせます。
@@ -514,8 +520,10 @@ RP2350内部温度は正確な室温センサー値ではありません。TLS�
 - [ ] ResolverとLabのCORSがブラウザーのcross-origin fetchに対応している
 - [ ] Runtime assetがSHA-256検証済みで配置されている
 - [ ] ロードだけではCapabilityを実行しない
-- [ ] `light`と`temperature`が表示される
-- [ ] Capabilityの相対endpointが最終AR-XML URL基準で正しく解決される
+- [ ] `indicator`と`controller-temperature`が表示される
+- [ ] Profile Claim、Profile Definition解決、評価済み適合性が別々に表示される
+- [ ] load、Definition解決、Profile評価でdevice commandが発生しない
+- [ ] HTTP routeが最終AR-XML URLを基準に解決される
 
 ### Pico
 
@@ -532,7 +540,7 @@ RP2350内部温度は正確な室温センサー値ではありません。TLS�
 | --- | --- |
 | Anchorのロードに失敗する | Resolverの`303`、Lab AR-XMLの`200`、両ホストのTLS/CORS、ブラウザーNetwork panel |
 | Capabilityが表示されない | AR-XMLのnamespace/version、`public/vendor/relink-web-runtime.js`、Runtimeのparse error |
-| ボタンが有効にならない | `light`/`temperature`のlocal ID、AR-XMLのCapability定義、Runtime load結果 |
+| ボタンが有効にならない | `indicator`/`controller-temperature`のlocal ID、Contract定義、route状態、Runtime load結果 |
 | LEDが変化しない | Labの`POST /api/light/state`、SQLite command store、PicoのGET polling、`DEVICE_ID`一致 |
 | 温度が表示されない | `GET /api/temperature`、PicoのADC実行、result callbackのJSONとHTTP status |
 | Picoが繰り返し再接続する | Wi-Fi timeout、HTTPS証明書検証、HTTP timeout、Lab endpointの到達性、result callback status |
