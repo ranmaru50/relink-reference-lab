@@ -78,7 +78,7 @@ sudo ./scripts/setup-linux.sh \
   --lab-host lab.example.com
 ```
 
-このコマンドは、Apache／PHP 8.3／Composer／SQLite、固定 commit の Resolver、Runtime v0.1.0、SQLite、初期 Anchor、Apache VirtualHost、受け入れ検証を構成します。再実行しても互換する Anchor、データベース、秘密値を保持します。
+このコマンドは、Apache／PHP 8.3／Composer／SQLite、固定 commit の Resolver、Runtime 0.2.0、SQLite、初期 Anchor、Apache VirtualHost、受け入れ検証を構成します。再実行しても互換する Anchor、データベース、秘密値を保持します。
 
 公開証明書を取得する前に、サーバー外部のクライアントから実行面を確認します。次の2つはどちらも `403` になります。`-k` はこの実験用 CA の確認に限って使用してください。
 

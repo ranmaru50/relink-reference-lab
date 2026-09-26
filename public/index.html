@@ -13,11 +13,14 @@
       #status { min-height: 1.5rem; white-space: pre-wrap; }
       .error { color: #c33; }
       .success { color: #287a3d; }
+      .profile-state { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; }
+      [data-state="NON_CONFORMANT"] { color: #c33; font-weight: 600; }
+      [data-state="UNDETERMINED"] { color: #a66b00; font-weight: 600; }
     </style>
   </head>
   <body>
     <h1 data-i18n="heading">RELink Pico 2 W Reference Lab</h1>
-    <p data-i18n="description">Capabilities are not invoked while loading. Each operation runs only after you select a button.</p>
+    <p data-i18n="description">Loading and evaluation do not invoke Capabilities. Each physical operation runs only after you select a button.</p>
 
     <label for="language-select" data-i18n="languageLabel">Language</label>
     <select id="language-select">
@@ -36,9 +39,19 @@
     <section id="entity-panel" class="panel" hidden>
       <h2 id="entity-title">Entity</h2>
       <p><span data-i18n="discoveredCapabilities">Discovered Capabilities:</span> <span id="capability-list"></span></p>
+      <dl class="profile-state" aria-live="polite">
+        <dt data-i18n="profileClaimLabel">Profile Claim:</dt>
+        <dd id="profile-claim-status"></dd>
+        <dt data-i18n="profileDefinitionLabel">Profile Definition:</dt>
+        <dd id="profile-definition-status"></dd>
+        <dt data-i18n="contractDefinitionLabel">Required Contract Definitions:</dt>
+        <dd id="profile-contract-status"></dd>
+        <dt data-i18n="profileConformanceLabel">Evaluated Conformance:</dt>
+        <dd id="profile-conformance-status"></dd>
+      </dl>
       <button id="light-on" data-i18n="lightOn" disabled>LED ON</button>
       <button id="light-off" data-i18n="lightOff" disabled>LED OFF</button>
-      <button id="temperature-read" data-i18n="readTemperature" disabled>Read temperature</button>
+      <button id="temperature-read" data-i18n="readTemperature" disabled>Read controller temperature</button>
       <pre id="result" aria-live="polite"></pre>
     </section>
 

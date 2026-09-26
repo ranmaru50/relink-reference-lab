@@ -7,8 +7,8 @@ set -Eeuo pipefail
 # Lab が検証済みとして固定する外部 Resolver の取得元と revision。
 readonly DEFAULT_RESOLVER_REPOSITORY="https://github.com/ranmaru50/relink-resolver.git"
 readonly DEFAULT_RESOLVER_REVISION="b790ac9770975b39b488a104125dc6510e1f54bf"
-# RELink Web Runtime v0.1.0 の既存 download script と同じ検証値。
-readonly RUNTIME_SHA256="f18d739edabc23285abd5fb64fcc056f17aaf480ddd1e0b6bed1702f8aab9e46"
+# Runtime 0.2.0 download script が固定する standalone ESM の SHA-256。
+readonly RUNTIME_SHA256="1d8605db4529929d2ee63dde9da407c0a3350abb559751352fd5083ed6f5245a"
 readonly RESOLVER_SITE_PATH="/etc/apache2/sites-available/relink-resolver.conf"
 readonly LAB_SITE_PATH="/etc/apache2/sites-available/relink-reference-lab.conf"
 readonly RESOLVER_SITE_LINK="/etc/apache2/sites-enabled/relink-resolver.conf"
@@ -640,7 +640,7 @@ composer install --working-dir="${RESOLVER_INSTALL_PATH}" \
 composer install --working-dir="${LAB_ROOT}" \
     --no-dev --no-interaction --prefer-dist --classmap-authoritative
 
-log "RELink Web Runtime v0.1.0 を取得し SHA-256 を検証します。"
+log "RELink Web Runtime 0.2.0 を取得し SHA-256 を検証します。"
 python3 "${SCRIPT_DIRECTORY}/download_runtime.py"
 
 install -d -o www-data -g www-data -m 0770 "${RESOLVER_DATA_PATH}"

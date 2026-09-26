@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-Raspberry Pi Pico 2 W を物理 Entity として、既存の RELink Resolver、AR-XML Core 0.1 Draft 4、RELink Web Runtime 0.1.0、Apache + PHP + SQLite、Pico MicroPython を接続する最小 L1 参照ラボです。
+Raspberry Pi Pico 2 W を物理 Entity として、既存の RELink Resolver、AR-XML Core 0.1 Draft 5、RELink Web Runtime 0.2.0、Apache + PHP + SQLite、Pico MicroPython を接続する最小 L1 参照ラボです。
 
 このリポジトリは `relink-web-runtime`、`relink-resolver`、`relink-testbed` の代替実装ではありません。Resolver は既存の Apache + PHP + SQLite 実装を別サービスとして再利用し、Lab は AR-XML、Web UI、Capability API、デバイス command store を提供します。
 
@@ -12,9 +12,10 @@ Raspberry Pi Pico 2 W を物理 Entity として、既存の RELink Resolver、A
 
 - Resolver Core 0.1 の L1 パス
 - 既存 Resolver による UUID → `303 See Other` → AR-XML
-- Runtime 0.1.0 による Resolver-mediated loading
-- この fixture に対する AR-XML Draft 4 の解析・検証
-- 最終 AR-XML URL を基準にした相対 Interface URL 解決
+- Runtime 0.2.0 による Resolver-mediated loading
+- Draft 5 の解析・検証、共有 Interface、InterfaceUse routing
+- exact-versioned Contract/Profile fixture と Claim/適合性の独立表示
+- 最終 AR-XML URL を基準にした相対 HTTP route 解決
 - 明示的な HTTP Capability invocation
 - 物理出力: Pico オンボード LED
 - 物理入力: RP2350 内部温度の読み取り
@@ -37,7 +38,9 @@ existing relink-resolver (Apache + PHP + SQLite)
   ↓ 303
 Lab AR-XML (Apache static file: public/arxml/pico2w.arxml)
   ↓
-Browser + RELink Web Runtime 0.1.0
+Browser + RELink Web Runtime 0.2.0
+  ↓ exact semantic identifiers
+ローカル Contract/Profile definition fixture
 
 [Execution]
 Human → Web App → RuntimeCapability.invoke()
@@ -52,11 +55,13 @@ Pico 2 W (MicroPython)
 ```text
 Entity      ≠ Location
 Capability  ≠ Interface
+Entity Resolution ≠ Semantic Definition Resolution
+Profile Claim ≠ Profile Conformance
 Description ≠ Execution
 Resolution  ≠ Authentication
 ```
 
-Resolver は UUID と current AR-XML Description Location の対応だけを扱い、AR-XML を fetch/parse したり Capability を実行したりしません。Web Runtime の `load()` は発見・記述処理であり、Capability 実行はユーザーがボタンを押したときの `invoke()` に限ります。
+Resolver は UUID と current AR-XML Description Location の対応だけを扱い、AR-XML の fetch/parse、意味定義の解決、Profile 評価、Capability 実行を行いません。ブラウザー Runtime はローカル定義 fixture を解決し、issuer の Claim とは分けて Profile 適合性を評価します。Runtime の `load()` と評価では Capability を実行せず、ユーザー操作による `invoke()` だけが実行境界です。
 
 ## 必要なもの
 
@@ -83,15 +88,15 @@ sudo ./scripts/setup-linux.sh
 
 実サーバー名は記載せず、架空の `example.com` と `192.0.2.10` を使用した公開配備例を[公開サーバー設定ガイド](docs/public-server-setup.ja.md)にまとめています。[英語版](docs/public-server-setup.md)も利用できます。実環境では自分のドメインと IP アドレスに置き換えてください。
 
-### 1. Runtime 0.1.0 を取得
+### 1. Runtime 0.2.0 を取得
 
-Runtime のソースツリーはコピーせず、公開 standalone ESM asset を SHA-256 検証付きで取得します。
+Runtime のソースツリーはコピーせず、固定 standalone ESM asset を SHA-256 検証付きで取得します。
 
 ```text
 uv run python scripts/download_runtime.py
 ```
 
-取得先は `public/vendor/relink-web-runtime.js` です。URL と SHA-256 は取得スクリプトに固定され、アセット自体は Git 管理対象外です。
+取得先は `public/vendor/relink-web-runtime.js` です。取得スクリプトは `relink-web-runtime` の `ver.0.2.0` commit と SHA-256 を固定します。上流にタグ付き Release が公開されるまでは、この branch の artifact を利用します。アセット自体は Git 管理対象外です。
 
 ### 2. SQLite を初期化
 
@@ -162,13 +167,20 @@ GATEWAY_URL = "https://<lab-host>/device"
 
 1. `https://<lab-host>/` を開く。
 2. 既存 Resolver の Anchor URL を入力し、「Entity を読み込む」を押す。
-3. `light` と `temperature` が表示されることを確認する。
-4. 「LED を ON/OFF」または「温度を読み取る」を押す。
-5. LED の状態または JSON の温度値を確認する。
+3. `indicator` と `controller-temperature` が表示されることを確認する。
+4. Profile Claim、Profile Definition、評価済み適合性が別々に表示されることを確認する。
+5. 「LED を ON/OFF」または「コントローラー温度を読み取る」を押す。
+6. LED の状態または JSON の温度値を確認する。
 
-ロード・発見だけでは物理操作は発生しません。温度値は RP2350 内部温度で、正確な室温センサー値ではありません。
+ロード、意味定義の解決、Profile 評価だけでは物理操作は発生しません。`controller-temperature` は RP2350 MCU 内部温度を表し、周囲温度・室温とは主張しません。`public/arxml/simulator-controller.arxml` は、異なる Capability ID と HTTP path でも同じ Profile を Claim できる例です。
 
 ## テスト
+
+Runtime結合テストの前にRuntime assetを取得します。
+
+```text
+uv run python scripts/download_runtime.py
+```
 
 ```text
 composer install
@@ -198,10 +210,12 @@ uv run python scripts/apache_acceptance.py --base-url https://<lab-host>
 - [ ] Pico が文書化した Wi-Fi / テザリングへ bounded timeout 内に接続する。
 - [ ] Pico が outbound HTTPS device session を確立する。
 - [ ] Anchor URL が既存 Resolver L1 から AR-XML URL へ `303` される。
-- [ ] Web Runtime 0.1.0 が Anchor path をロードする。
-- [ ] Web App に 2 Capability が表示される。
-- [ ] `light.setState(true)` で LED が点灯する。
-- [ ] `light.setState(false)` で LED が消灯する。
+- [ ] Web Runtime 0.2.0 の Draft 5 既定 mode で Anchor path をロードする。
+- [ ] Web App に `indicator` と `controller-temperature` が表示される。
+- [ ] Profile Claim、Definition 解決、評価済み適合性を別々に確認できる。
+- [ ] load、parse、definition 解決、Profile 評価で device command が発生しない。
+- [ ] `indicator.set(on=true)` で LED が点灯する。
+- [ ] `indicator.set(on=false)` で LED が消灯する。
 - [ ] `temperature.read()` が数値を返す。
 - [ ] デバイス停止時に API が 504 を返し、UI がエラーを表示する。
 - [ ] ロードだけでは Capability が実行されない。
@@ -219,4 +233,4 @@ uv run python scripts/apache_acceptance.py --base-url https://<lab-host>
 
 ## 調査結果
 
-Draft 4 の相対 endpoint、内部温度、MicroPython TLS/CA、SQLite session の観察は [docs/findings.ja.md](docs/findings.ja.md) に分類して記録しています。[英語版](docs/findings.md)も利用できます。
+Draft 5 route、MCU 内部温度、MicroPython TLS/CA、SQLite session の観察は [docs/findings.ja.md](docs/findings.ja.md) に分類して記録しています。[英語版](docs/findings.md)も利用できます。

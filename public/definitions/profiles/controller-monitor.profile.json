@@ -1,0 +1,12 @@
+{
+  "identifier": "https://relink.dev/profiles/reference-lab/controller-monitor/1",
+  "capabilityRequirements": [
+    {
+      "contractIdentifier": "https://relink.dev/capabilities/temperature/read/1",
+      "required": true,
+      "requiredOutputNames": [
+        "temperature"
+      ]
+    }
+  ]
+}

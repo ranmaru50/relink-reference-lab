@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1">
+  <category>reference-lab.controller</category>
+
+  <subjects>
+    <subject id="simulated-controller" type="https://relink.dev/subjects/controller/1" />
+  </subjects>
+
+  <profiles>
+    <conforms-to href="https://relink.dev/profiles/reference-lab/controller-monitor/1" />
+  </profiles>
+
+  <interfaces>
+    <interface id="simulator-sensor-api">
+      <realization>
+        <http:api base="../" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="controller-thermal-reading"
+      type="https://relink.dev/capabilities/temperature/read/1"
+      subject-ref="simulated-controller">
+      <invocation>
+        <result>
+          <outputs>
+            <output name="temperature" type="number" unit="Cel" />
+          </outputs>
+          <representations>
+            <representation media-type="application/json" />
+          </representations>
+        </result>
+      </invocation>
+      <interface-uses>
+        <interface-use ref="simulator-sensor-api">
+          <mapping>
+            <http:operation method="GET" path="sensor/v2/value" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>

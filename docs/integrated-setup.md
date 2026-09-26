@@ -29,7 +29,7 @@ sudo ./scripts/setup-linux.sh
 | Lab data | `/var/lib/relink-reference-lab` |
 | Lab application | the clone containing `setup-linux.sh` |
 
-The script installs only the required APT packages and acquires the official external `relink-resolver` checkout pinned to commit `b790ac9770975b39b488a104125dc6510e1f54bf`. It then configures production Composer dependencies for Resolver and Lab, Runtime v0.1.0, both SQLite stores, two Apache HTTPS VirtualHosts, and the sample ACTIVE Anchor. Resolver source is not copied into the Lab and both databases remain outside DocumentRoot.
+The script installs only the required APT packages and acquires the official external `relink-resolver` checkout pinned to commit `b790ac9770975b39b488a104125dc6510e1f54bf`. It then configures production Composer dependencies for Resolver and Lab, Runtime 0.2.0, both SQLite stores, two Apache HTTPS VirtualHosts, and the sample ACTIVE Anchor. Resolver source is not copied into the Lab and both databases remain outside DocumentRoot.
 
 The default `local-ca` mode creates a development-only CA and server certificate once under `/etc/relink-reference-lab/tls`. This is not equivalent to normal Web PKI and is not for public deployment. Automated checks on the VM explicitly trust only that CA. For LAN clients, add the hosts entry printed at completion and trust the development CA on test clients only. Use public mode when the Pico environment cannot be configured to trust this CA.
 
@@ -247,7 +247,7 @@ uv sync
 uv run python scripts/download_runtime.py
 ```
 
-The download script obtains the v0.1.0 standalone ESM asset, verifies its pinned SHA-256 digest, and writes `public/vendor/relink-web-runtime.js`. Do not copy the Runtime source tree into the public DocumentRoot.
+The download script obtains the standalone ESM asset from the pinned `relink-web-runtime` `ver.0.2.0` commit, verifies its SHA-256 digest, and writes `public/vendor/relink-web-runtime.js`. This branch artifact is used until an upstream tagged release is published. Do not copy the Runtime source tree into the public DocumentRoot.
 
 ### SQLite and PHP
 
@@ -298,16 +298,16 @@ DEVICE_COMMAND_TIMEOUT=8
 
 ### AR-XML and Web app
 
-The fixture `public/arxml/pico2w.arxml` defines:
+The Draft 5 fixture `public/arxml/pico2w.arxml` defines a shared HTTP Interface and per-Capability InterfaceUse routes:
 
 | Capability ID | Interface | Relative endpoint | Input/output |
 | --- | --- | --- | --- |
-| `light` | `POST`、JSON | `../api/light/state` | `{ "on": true/false }` → JSON scalar `boolean` |
-| `temperature` | `GET` | `../api/temperature` | 入力なし → JSON scalar `number` |
+| `indicator` (`indicator.set`) | `POST`、JSON | `light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
+| `controller-temperature` (`temperature.read`) | `GET` | `temperature` | 入力なし → `{ "temperature": number }` (RP2350 internal MCU temperature) |
 
-Relative endpoints use the **final fetched AR-XML URL**, not the Resolver URL. With the example placement, `../api/...` resolves to the Lab API. Do not put the Pico `/device/commands` or `/device/results` routes in AR-XML; they are internal command-store traffic.
+HTTP base and operation paths use the **final fetched AR-XML URL**, not the Resolver URL. The Entity Resolution boundary stops at the AR-XML location. Browser-side semantic definition resolution reads the exact-versioned Contract/Profile fixtures separately. The UI displays the Profile Claim, definition resolution, and evaluated conformance independently. Do not put the Pico `/device/commands` or `/device/results` routes in AR-XML; they are internal command-store traffic.
 
-To add a Capability, define its `id`, semantic `type`, `inputs`, `result.outputs`, `result.representations`, and `interfaces`, then implement the PHP endpoint and Pico `execute_command()` together. Runtime does not execute arbitrary JavaScript from AR-XML.
+To add a Capability, declare a local `id`, exact Contract `type`, optional `invocation`, and `interface-uses` referencing an Entity-level Interface, then add its external Contract definition and implement the PHP endpoint and Pico `execute_command()` together. Runtime does not execute arbitrary JavaScript from AR-XML.
 
 The current UI is `public/index.html` and `public/app.js`. Set the Anchor URL default or enter it in the UI, select a language, load the Entity, and verify in the browser Network panel that the Anchor returns `303`, AR-XML returns `200`, no Capability is invoked on load, LED control produces `POST /api/light/state`, and temperature control produces `GET /api/temperature`.
 
@@ -317,10 +317,16 @@ Custom UIs should use the Runtime API shape:
 import { ARRuntime } from "@relink/web-runtime";
 
 const runtimeDocument = await new ARRuntime().load(anchorUrl);
-const light = runtimeDocument.getCapability("light");
-const result = await light.invoke({ on: true }, { accept: "application/json" });
+const indicator = runtimeDocument.getCapability("indicator");
+const route = indicator.evaluation.routes.find((item) => item.availability === "READY");
+const result = await indicator.invoke({ on: true }, {
+  accept: "application/json",
+  routeId: route.routeId,
+});
 console.log(result.values);
 ```
+
+The Entity's `<profiles><conforms-to>` value is only an issuer claim. Use `runtimeDocument.evaluateProfile(profileIdentifier)` to read Profile resolution and evaluated conformance separately. The JSON definitions under `public/definitions/` are provisional Reference Lab fixtures, not a finalized normative serialization format.
 
 This Lab loads the pinned standalone asset from `public/vendor/relink-web-runtime.js` instead of adding the package as a dependency.
 
@@ -381,7 +387,7 @@ If the result callback is not HTTP 200, the Pico enters reconnect/exponential ba
 
 ### Physical check
 
-Check the Pico serial log, open the Lab Web UI, enter the Resolver Anchor URL, and select **Load Entity**. Confirm that `light` and `temperature` appear without a command being issued. Test **LED ON**, **LED OFF**, and **Read temperature**, then correlate Apache logs, SQLite state, and Pico logs by command ID. The RP2350 internal temperature is not an accurate room-temperature sensor. Verify TLS validation, SNI, timeouts, memory, and Wi-Fi reconnection on the hardware.
+Check the Pico serial log, open the Lab Web UI, enter the Resolver Anchor URL, and select **Load Entity**. Confirm that `indicator` and `controller-temperature` appear, the Profile Claim and evaluated conformance are separate, and no command is issued during load or evaluation. Test **LED ON**, **LED OFF**, and **Read controller temperature**, then correlate Apache logs, SQLite state, and Pico logs by command ID. The RP2350 internal temperature is not ambient/room temperature. Verify TLS validation, SNI, timeouts, memory, and Wi-Fi reconnection on the hardware.
 
 ## 6. Verification checklist
 
@@ -399,8 +405,10 @@ Check the Pico serial log, open the Lab Web UI, enter the Resolver Anchor URL, a
 - [ ] Resolver and Lab CORS allow the browser cross-origin fetches.
 - [ ] The Runtime asset is placed after SHA-256 verification.
 - [ ] Loading does not execute a Capability.
-- [ ] `light` and `temperature` appear.
-- [ ] Relative endpoints resolve from the final AR-XML URL.
+- [ ] `indicator` and `controller-temperature` appear.
+- [ ] Profile Claim, definition resolution, and evaluated conformance are shown separately.
+- [ ] Loading/definition resolution/Profile evaluation produces no device command.
+- [ ] HTTP routes resolve from the final AR-XML URL and invocation selects one READY route.
 
 ### Pico
 
@@ -417,7 +425,7 @@ Check the Pico serial log, open the Lab Web UI, enter the Resolver Anchor URL, a
 | --- | --- |
 | Anchor load fails | Resolver `303`, Lab AR-XML `200`, TLS/CORS on both hosts, and browser Network panel |
 | No Capabilities | AR-XML namespace/version, Runtime asset, and Runtime parse errors |
-| Buttons stay disabled | `light`/`temperature` local IDs, AR-XML definitions, and Runtime load result |
+| Buttons stay disabled | `indicator`/`controller-temperature` local IDs, Contract definitions, route state, and Runtime load result |
 | LED does not change | `POST /api/light/state`, SQLite command store, Pico polling, and matching `DEVICE_ID` |
 | No temperature | `GET /api/temperature`, Pico ADC execution, result JSON, and HTTP status |
 | Pico reconnects repeatedly | Wi-Fi/TLS/HTTP timeouts, endpoint reachability, and callback status |

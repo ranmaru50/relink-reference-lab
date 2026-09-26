@@ -14,6 +14,8 @@ The Lab server uses Apache 2.4, PHP 8.1+, and PDO SQLite. The existing `relink-r
    uv run python scripts/download_runtime.py
    ```
 
+   The script pins the standalone artifact to the upstream `relink-web-runtime` `ver.0.2.0` commit and verifies its SHA-256. It uses the branch artifact until an upstream tagged release is published. The Draft 5 Entity references static exact-versioned definitions under `public/definitions/`.
+
 2. Create the database with PHP and `pdo_sqlite`:
 
    ```text
