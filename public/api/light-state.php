@@ -28,8 +28,8 @@ try {
     if (!is_bool($state)) {
         throw new LabStoreCommandFailed('device result state が boolean ではありません');
     }
-    // Runtime は単一 Output の HTTP Response body に値そのものを要求する。
-    lab_json_response(200, $state);
+    // Draft 5 の Result は Output 名をキーにした JSON object として返す。
+    lab_json_response(200, ['state' => $state]);
 } catch (InvalidArgumentException | JsonException $error) {
     lab_json_response(400, ['error' => $error->getMessage()]);
 } catch (LabStoreTimeout $error) {

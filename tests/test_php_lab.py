@@ -76,6 +76,19 @@ def test_semantic_fixtures_use_exact_matching_identifiers():
     assert profile["capabilityRequirements"][0]["contractIdentifier"] == temperature["identifier"]
 
 
+def test_capability_success_responses_use_output_named_json_objects():
+    """PHP成功応答のbodyがDraft 5のOutput名付きobjectになる。"""
+    light_endpoint = (ROOT / "public" / "api" / "light-state.php").read_text(encoding="utf-8")
+    temperature_endpoint = (ROOT / "public" / "api" / "temperature.php").read_text(
+        encoding="utf-8"
+    )
+    bootstrap = (ROOT / "src" / "bootstrap.php").read_text(encoding="utf-8")
+
+    assert "lab_json_response(200, ['state' => $state]);" in light_endpoint
+    assert "lab_json_response(200, ['temperature' => $temperature]);" in temperature_endpoint
+    assert "echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);" in bootstrap
+
+
 def test_runtime_download_is_pinned_to_verified_draft5_artifact():
     """取得元commitとRuntime hashがLinux bootstrapにも同じ値で固定される。"""
     downloader = (ROOT / "scripts" / "download_runtime.py").read_text(encoding="utf-8")

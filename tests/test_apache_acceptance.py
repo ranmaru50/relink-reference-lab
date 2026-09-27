@@ -45,6 +45,8 @@ class AcceptanceHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler のAPI名に従う
         """Capability validation と不正resultの応答を返す。"""
+        # HTTP fixture がPOST本文を読み切ってから応答し、接続リセットを防ぐ。
+        self.rfile.read(int(self.headers.get("Content-Length", "0")))
         if self.path == "/api/light/state":
             self.send_response(400)
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -70,6 +72,7 @@ class AcceptanceHandler(BaseHTTPRequestHandler):
         if len(self.headers.get("X-RELink-Acceptance-Oversized", "")) > 8190:
             status = 400
         self.send_response(status)
+        self.send_header("Cache-Control", "no-cache")
         if self.include_hsts:
             self.send_header("Strict-Transport-Security", "max-age=31536000")
         self.end_headers()

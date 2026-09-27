@@ -4,6 +4,13 @@
 Options -Indexes
 RewriteEngine On
 
+# 更新後のHTML・JS・AR-XMLをブラウザーキャッシュから再検証させる。
+<IfModule mod_headers.c>
+    <FilesMatch "\.(arxml|html|js)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>
+
 RewriteRule ^api/light/state/?$ api/light-state.php [END,QSA]
 RewriteRule ^api/temperature/?$ api/temperature.php [END,QSA]
 RewriteRule ^device/commands/?$ device/commands.php [END,QSA]

@@ -63,9 +63,48 @@ describe("Reference Lab Draft 5 semantic flow", () => {
 
     const temperature = document.getCapability("controller-temperature");
     const routeId = temperature.evaluation.routes[0].routeId;
-    await temperature.invoke({}, { routeId });
+    const temperatureResult = await temperature.invoke({}, { routeId });
     expect(invoke).toHaveBeenCalledOnce();
     expect(invoke.mock.calls[0][0].href).toBe("https://lab.example/api/temperature");
+    expect(temperatureResult.values).toEqual({ temperature: 22.4 });
+
+    const indicator = document.getCapability("indicator");
+    const indicatorRouteId = indicator.evaluation.routes[0].routeId;
+    const indicatorResult = await indicator.invoke({ on: true }, { routeId: indicatorRouteId });
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(indicatorResult.values).toEqual({ state: true });
+  });
+
+  it.each([
+    { capabilityId: "controller-temperature", inputs: {}, scalar: 22.4 },
+    { capabilityId: "indicator", inputs: { on: true }, scalar: true },
+  ])("rejects a Draft 5 single-Output scalar response for $capabilityId", async ({
+    capabilityId,
+    inputs,
+    scalar,
+  }) => {
+    const [xml, semanticRegistry] = await Promise.all([
+      readFixture("../public/arxml/pico2w.arxml"),
+      loadDefinitions(),
+    ]);
+    const runtime = new ARRuntime({
+      resourceFetcher: { fetchText: vi.fn().mockResolvedValue(xml) },
+      httpInvoker: {
+        invoke: vi.fn(async () => ({
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          text: async () => JSON.stringify(scalar),
+          blob: async () => new Blob(),
+        })),
+      },
+      semanticRegistry,
+    });
+    const document = await runtime.load("https://lab.example/arxml/pico2w.arxml");
+    const capability = document.getCapability(capabilityId);
+    const routeId = capability.evaluation.routes[0].routeId;
+
+    await expect(capability.invoke(inputs, { routeId }))
+      .rejects.toThrow("JSON Result は top-level object である必要があります");
   });
 
   it("evaluates the same Profile for a different local ID and HTTP path", async () => {
