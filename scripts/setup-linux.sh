@@ -338,7 +338,6 @@ generate_local_certificate() {
     local server_key="${tls_directory}/relink-lab.key"
     local server_certificate="${tls_directory}/relink-lab.crt"
     local certificate_request="${WORK_DIRECTORY}/relink-lab.csr"
-    local ca_extension_file="${WORK_DIRECTORY}/relink-ca-extensions.cnf"
     local extension_file="${WORK_DIRECTORY}/relink-lab-extensions.cnf"
 
     install -d -o root -g root -m 0700 "${tls_directory}"
@@ -354,16 +353,11 @@ generate_local_certificate() {
     else
         log "実験専用 CA と HTTPS 証明書を生成します。"
         openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "${ca_key}"
-        cat >"${ca_extension_file}" <<'EOF'
-[v3_ca]
-basicConstraints=critical,CA:TRUE,pathlen:0
-keyUsage=critical,keyCertSign,cRLSign
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid:always,issuer
-EOF
         openssl req -x509 -new -sha256 -days 3650 -key "${ca_key}" \
             -subj "/CN=RELink Reference Lab Development CA" \
-            -extensions v3_ca -extfile "${ca_extension_file}" -out "${ca_certificate}"
+            -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+            -addext "keyUsage=critical,keyCertSign,cRLSign" \
+            -addext "subjectKeyIdentifier=hash" -out "${ca_certificate}"
         openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "${server_key}"
         openssl req -new -sha256 -key "${server_key}" \
             -subj "/CN=${LAB_HOST}" -out "${certificate_request}"
