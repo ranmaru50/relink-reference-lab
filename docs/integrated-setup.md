@@ -302,8 +302,8 @@ The Draft 5 fixture `public/arxml/pico2w.arxml` defines a shared HTTP Interface 
 
 | Capability ID | Interface | Relative endpoint | Input/output |
 | --- | --- | --- | --- |
-| `indicator` (`indicator.set`) | `POST`、JSON | `light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
-| `controller-temperature` (`temperature.read`) | `GET` | `temperature` | 入力なし → `{ "temperature": number }` (RP2350 internal MCU temperature) |
+| `indicator` (`indicator.set`) | `POST`、JSON | `light/state` | `{ "on": true/false }` → `true/false` (single Output value) |
+| `controller-temperature` (`temperature.read`) | `GET` | `temperature` | No input → `number` (RP2350 internal MCU temperature, single Output value) |
 
 HTTP base and operation paths use the **final fetched AR-XML URL**, not the Resolver URL. The Entity Resolution boundary stops at the AR-XML location. Browser-side semantic definition resolution reads the exact-versioned Contract/Profile fixtures separately. The UI displays the Profile Claim, definition resolution, and evaluated conformance independently. Do not put the Pico `/device/commands` or `/device/results` routes in AR-XML; they are internal command-store traffic.
 

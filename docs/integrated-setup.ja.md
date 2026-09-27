@@ -352,8 +352,8 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
 
 | Capability ID | Interface | 相対endpoint | 入力・出力 |
 | --- | --- | --- | --- |
-| `indicator` (`indicator.set`) | `POST`、JSON | `light/state` | `{ "on": true/false }` → `{ "state": boolean }` |
-| `controller-temperature` (`temperature.read`) | `GET` | `temperature` | 入力なし → `{ "temperature": number }` (RP2350 MCU内部温度) |
+| `indicator` (`indicator.set`) | `POST`、JSON | `light/state` | `{ "on": true/false }` → `true/false` (単一 Output の値) |
+| `controller-temperature` (`temperature.read`) | `GET` | `temperature` | 入力なし → `number` (RP2350 MCU内部温度、単一 Output の値) |
 
 HTTP baseとoperation pathは、Resolver URLではなく**最終的に取得されたAR-XMLのURL**を基準に解決されます。Entity ResolutionはAR-XMLの場所までです。ブラウザー側ではexact-versioned Contract/Profile fixtureを別に解決し、UIはProfile Claim、定義解決、評価済み適合性を分けて表示します。
 
