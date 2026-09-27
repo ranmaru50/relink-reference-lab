@@ -24,7 +24,7 @@ try {
     if (!is_int($temperature) && !is_float($temperature)) {
         throw new LabStoreCommandFailed('device result temperature が number ではありません');
     }
-    // Draft 5 の JSON Result は Output 名を持つ object として返す。
+    // Draft 5 の Result は Output 名をキーにした JSON object として返す。
     lab_json_response(200, ['temperature' => $temperature]);
 } catch (LabStoreTimeout $error) {
     lab_json_response(504, ['error' => $error->getMessage()]);

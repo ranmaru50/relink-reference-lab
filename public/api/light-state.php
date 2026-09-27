@@ -28,7 +28,7 @@ try {
     if (!is_bool($state)) {
         throw new LabStoreCommandFailed('device result state が boolean ではありません');
     }
-    // Draft 5 の JSON Result は Output 名を持つ object として返す。
+    // Draft 5 の Result は Output 名をキーにした JSON object として返す。
     lab_json_response(200, ['state' => $state]);
 } catch (InvalidArgumentException | JsonException $error) {
     lab_json_response(400, ['error' => $error->getMessage()]);

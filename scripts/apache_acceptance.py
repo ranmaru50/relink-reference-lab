@@ -59,6 +59,13 @@ def expect(response, status: int, label: str):
     return response
 
 
+def require_cache_revalidation(response, label: str) -> None:
+    """更新される静的Entity/UI/Runtime資産が再検証可能なcache policyを持つ。"""
+    cache_control = response.headers.get("Cache-Control", "").lower()
+    if "no-cache" not in {value.strip() for value in cache_control.split(",")}:
+        raise RuntimeError(f"{label} is missing Cache-Control: no-cache")
+
+
 def check_hardening(
     base_url: str,
     path: str,
@@ -118,11 +125,13 @@ def run(
     opener = build_http_opener(ca_file)
 
     web_ui = expect(request(base_url, "/", opener=opener), 200, "Lab Web UI")
+    require_cache_revalidation(web_ui, "Lab Web UI")
     if "RELink Pico 2 W" not in web_ui.read().decode("utf-8"):
         raise RuntimeError("Lab Web UI body is invalid")
     check_hardening(base_url, "/", opener, "Lab", require_hsts)
 
     arxml = expect(request(base_url, "/arxml/pico2w.arxml", opener=opener), 200, "AR-XML")
+    require_cache_revalidation(arxml, "AR-XML")
     if "ar-entity" not in arxml.read().decode("utf-8"):
         raise RuntimeError("AR-XML body is invalid")
 
@@ -131,6 +140,7 @@ def run(
         200,
         "RELink Web Runtime",
     )
+    require_cache_revalidation(runtime, "RELink Web Runtime")
     runtime_digest = hashlib.sha256(runtime.read()).hexdigest()
     if runtime_sha256 is not None and runtime_digest != runtime_sha256:
         raise RuntimeError(
