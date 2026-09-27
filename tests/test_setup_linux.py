@@ -83,6 +83,16 @@ def test_public_tls_installs_a_certbot_deploy_hook() -> None:
     assert "管理対象外の Certbot deploy hook を上書きしません" in setup
 
 
+def test_local_ca_declares_certificate_authority_key_usage() -> None:
+    """ローカルCAがTLS verifierの要求する証明書署名用途を宣言する。"""
+    setup = SETUP_SCRIPT.read_text(encoding="utf-8")
+
+    assert "[v3_ca]" in setup
+    assert "basicConstraints=critical,CA:TRUE,pathlen:0" in setup
+    assert "keyUsage=critical,keyCertSign,cRLSign" in setup
+    assert "-extensions v3_ca -extfile \"${ca_extension_file}\"" in setup
+
+
 def test_public_tls_restricts_execution_and_applies_hardening() -> None:
     """public mode は実行面を制限し、Resolver Native hardening を再利用する。"""
     setup = SETUP_SCRIPT.read_text(encoding="utf-8")
