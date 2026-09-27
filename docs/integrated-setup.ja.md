@@ -294,7 +294,7 @@ uv sync
 uv run python scripts/download_runtime.py
 ```
 
-`download_runtime.py`は、`relink-web-runtime`の`ver.0.2.0` commitからstandalone ESM assetを取得し、固定SHA-256を検証して`public/vendor/relink-web-runtime.js`へ配置します。上流にタグ付きReleaseが公開されるまでは、このbranch artifactを使います。RuntimeのソースツリーをLabの公開DocumentRootへコピーする必要はありません。
+`download_runtime.py`は、`relink-web-runtime`の`v0.2.0` Releaseからstandalone ESM assetを取得し、固定SHA-256を検証して`public/vendor/relink-web-runtime.js`へ配置します。RuntimeのソースツリーをLabの公開DocumentRootへコピーする必要はありません。
 
 ### 4.2 SQLiteとPHP実行環境を設定する
 

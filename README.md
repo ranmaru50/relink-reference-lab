@@ -88,7 +88,7 @@ Do not copy the Runtime source tree. Download the pinned standalone ESM asset an
 uv run python scripts/download_runtime.py
 ```
 
-The asset is written to `public/vendor/relink-web-runtime.js` and is excluded from Git. The script pins the `relink-web-runtime` `ver.0.2.0` commit and SHA-256. The upstream `ver.0.2.0` branch artifact is used until a tagged release is published.
+The asset is written to `public/vendor/relink-web-runtime.js` and is excluded from Git. The script pins the `relink-web-runtime` `v0.2.0` Release asset and SHA-256.
 
 ### 2. Initialize SQLite
 

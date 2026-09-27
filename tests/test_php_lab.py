@@ -81,7 +81,8 @@ def test_runtime_download_is_pinned_to_verified_draft5_artifact():
     downloader = (ROOT / "scripts" / "download_runtime.py").read_text(encoding="utf-8")
     bootstrap = (ROOT / "scripts" / "setup-linux.sh").read_text(encoding="utf-8")
 
-    assert "402e378c3cd6aa92355f93a3781c7ddc49c141d5" in downloader
-    assert "dist/relink-web-runtime.js" in downloader
-    assert "1d8605db4529929d2ee63dde9da407c0a3350abb559751352fd5083ed6f5245a" in downloader
-    assert "1d8605db4529929d2ee63dde9da407c0a3350abb559751352fd5083ed6f5245a" in bootstrap
+    assert "v0.2.0" in downloader
+    assert "releases/download/" in downloader
+    assert "relink-web-runtime.js" in downloader
+    assert "1246cd717cc17d1c4c20583f4b3558703d91d30788ce06d09f4bb9e3b5b008fb" in downloader
+    assert "1246cd717cc17d1c4c20583f4b3558703d91d30788ce06d09f4bb9e3b5b008fb" in bootstrap
