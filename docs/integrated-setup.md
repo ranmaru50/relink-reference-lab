@@ -247,7 +247,7 @@ uv sync
 uv run python scripts/download_runtime.py
 ```
 
-The download script obtains the standalone ESM asset from the pinned `relink-web-runtime` `ver.0.2.0` commit, verifies its SHA-256 digest, and writes `public/vendor/relink-web-runtime.js`. This branch artifact is used until an upstream tagged release is published. Do not copy the Runtime source tree into the public DocumentRoot.
+The download script obtains the standalone ESM asset from the pinned `relink-web-runtime` `v0.2.0` Release, verifies its SHA-256 digest, and writes `public/vendor/relink-web-runtime.js`. Do not copy the Runtime source tree into the public DocumentRoot.
 
 ### SQLite and PHP
 

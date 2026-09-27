@@ -96,7 +96,7 @@ Runtime のソースツリーはコピーせず、固定 standalone ESM asset �
 uv run python scripts/download_runtime.py
 ```
 
-取得先は `public/vendor/relink-web-runtime.js` です。取得スクリプトは `relink-web-runtime` の `ver.0.2.0` commit と SHA-256 を固定します。上流にタグ付き Release が公開されるまでは、この branch の artifact を利用します。アセット自体は Git 管理対象外です。
+取得先は `public/vendor/relink-web-runtime.js` です。取得スクリプトは `relink-web-runtime` の `v0.2.0` Release asset と SHA-256 を固定します。アセット自体は Git 管理対象外です。
 
 ### 2. SQLite を初期化
 

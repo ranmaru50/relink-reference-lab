@@ -8,14 +8,13 @@ import sys
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-# Runtime 0.2.0 standalone ESM アセットと SHA-256 ダイジェスト。
-# Release 作成前の ver.0.2.0 ブランチを完全な commit SHA で固定する。
-RUNTIME_REVISION = "402e378c3cd6aa92355f93a3781c7ddc49c141d5"
+# Runtime v0.2.0 standalone ESM Release asset と SHA-256 ダイジェスト。
+RUNTIME_VERSION = "v0.2.0"
 RUNTIME_URL = (
-    "https://raw.githubusercontent.com/ranmaru50/relink-web-runtime/"
-    f"{RUNTIME_REVISION}/dist/relink-web-runtime.js"
+    "https://github.com/ranmaru50/relink-web-runtime/releases/download/"
+    f"{RUNTIME_VERSION}/relink-web-runtime.js"
 )
-RUNTIME_SHA256 = "1d8605db4529929d2ee63dde9da407c0a3350abb559751352fd5083ed6f5245a"
+RUNTIME_SHA256 = "1246cd717cc17d1c4c20583f4b3558703d91d30788ce06d09f4bb9e3b5b008fb"
 OUTPUT_PATH = Path(__file__).resolve().parents[1] / "public" / "vendor" / "relink-web-runtime.js"
 
 
@@ -42,7 +41,7 @@ def main() -> int:
         print(f"Failed to download Runtime: {error}", file=sys.stderr)
         return 1
 
-    print(f"Downloaded Runtime 0.2.0 ({RUNTIME_REVISION}): {output_path}")
+    print(f"Downloaded Runtime {RUNTIME_VERSION}: {output_path}")
     return 0
 
 

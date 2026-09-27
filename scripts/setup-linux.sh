@@ -8,7 +8,7 @@ set -Eeuo pipefail
 readonly DEFAULT_RESOLVER_REPOSITORY="https://github.com/ranmaru50/relink-resolver.git"
 readonly DEFAULT_RESOLVER_REVISION="b790ac9770975b39b488a104125dc6510e1f54bf"
 # Runtime 0.2.0 download script が固定する standalone ESM の SHA-256。
-readonly RUNTIME_SHA256="1d8605db4529929d2ee63dde9da407c0a3350abb559751352fd5083ed6f5245a"
+readonly RUNTIME_SHA256="1246cd717cc17d1c4c20583f4b3558703d91d30788ce06d09f4bb9e3b5b008fb"
 readonly RESOLVER_SITE_PATH="/etc/apache2/sites-available/relink-resolver.conf"
 readonly LAB_SITE_PATH="/etc/apache2/sites-available/relink-reference-lab.conf"
 readonly RESOLVER_SITE_LINK="/etc/apache2/sites-enabled/relink-resolver.conf"

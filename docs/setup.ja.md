@@ -14,7 +14,7 @@ Lab のサーバー側は Apache 2.4 + PHP 8.1+ + PDO SQLite です。Resolver �
    uv run python scripts/download_runtime.py
    ```
 
-   スクリプトは上流`relink-web-runtime`の`ver.0.2.0` commitに固定したstandalone assetを取得し、SHA-256を検証します。タグ付きRelease公開まではbranch artifactを使います。Draft 5 Entityは`public/definitions/`のexact-versioned定義を参照します。
+   スクリプトは上流`relink-web-runtime`の`v0.2.0` Releaseからstandalone assetを取得し、SHA-256を検証します。Draft 5 Entityは`public/definitions/`のexact-versioned定義を参照します。
 
 2. `pdo_sqlite` が有効な PHP で DB を作る。
 
