@@ -49,7 +49,6 @@ class AcceptanceHandler(BaseHTTPRequestHandler):
         self.rfile.read(int(self.headers.get("Content-Length", "0")))
         if self.path == "/api/light/state":
             self.send_response(400)
-            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
         elif self.path == "/device/results/" + "0" * 32:
             self._respond(400)

@@ -255,6 +255,54 @@ validate_supported_system() {
     esac
 }
 
+verify_php_security_patch() {
+    local php_version
+    local php_branch
+    local fixed_upstream_version
+    local vendor_fixed_version=""
+    local package
+    local package_version
+
+    php_version="$(php -r 'echo PHP_VERSION;')"
+    php_branch="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
+    case "${php_branch}" in
+        8.2) fixed_upstream_version="8.2.35" ;;
+        8.3) fixed_upstream_version="8.3.36" ;;
+        8.4) fixed_upstream_version="8.4.27" ;;
+        8.5) fixed_upstream_version="8.5.12" ;;
+        *) fail "PHP ${php_branch} のPHP2Shell修正版を判定できません。対応するPHPへ更新してください。" ;;
+    esac
+
+    # Ubuntu の修正版は upstream の版番号を維持したセキュリティバックポートを許可する。
+    case "${ID:-}:${VERSION_ID:-}:${php_branch}" in
+        ubuntu:24.04:8.3) vendor_fixed_version="8.3.6-0ubuntu0.24.04.13" ;;
+        ubuntu:26.04:8.5) vendor_fixed_version="8.5.4-0ubuntu1.5" ;;
+        ubuntu:26.10:8.5) vendor_fixed_version="8.5.9-0ubuntu2.1" ;;
+    esac
+
+    a2query -m "php${php_branch}" -q \
+        || fail "Apache で PHP ${php_branch} mod_php が有効ではありません。"
+
+    php -r 'exit(version_compare(PHP_VERSION, "8.3.0", ">=") ? 0 : 1);' \
+        || fail "Resolver には PHP 8.3 以上が必要です。"
+
+    for package in \
+        "libapache2-mod-php${php_branch}" \
+        "php${php_branch}-cli" \
+        "php${php_branch}-common"; do
+        package_version="$(dpkg-query -W -f='${Version}' "${package}" 2>/dev/null)" \
+            || fail "PHP2Shell 対策の確認に必要な package がありません: ${package}"
+        if dpkg --compare-versions "${package_version}" ge "${fixed_upstream_version}"; then
+            continue
+        fi
+        [[ -n "${vendor_fixed_version}" ]] \
+            && dpkg --compare-versions "${package_version}" ge "${vendor_fixed_version}" \
+            || fail "${package} ${package_version} は PHP2Shell 未修正です。PHP ${fixed_upstream_version} 以降、またはディストリビューターの修正版へ更新してください。"
+    done
+
+    log "PHP2Shell 修正版を確認しました: PHP ${php_version} (${php_branch})"
+}
+
 restore_apache_state() {
     [[ "${ROLLBACK_ACTIVE}" -eq 1 ]] || return 0
     log "失敗した Apache site 変更をロールバックします。"
@@ -531,6 +579,7 @@ ${SETUP_MARKER}
     SetEnv LAB_DB_PATH "${LAB_DATA_PATH}/lab.sqlite"
     SetEnv DEVICE_ID "${DEVICE_ID}"
     SetEnv DEVICE_COMMAND_TIMEOUT "${DEVICE_COMMAND_TIMEOUT}"
+    SetEnv LAB_ALLOWED_ORIGINS "https://${LAB_HOST}"
     SetEnv RESOLVER_BASE_URL "https://${RESOLVER_HOST}"
     SetEnv ANCHOR_UUID "${ANCHOR_UUID}"
     LimitRequestBody 65536
@@ -602,7 +651,8 @@ EOF
     a2ensite relink-resolver relink-reference-lab >/dev/null
     apache2ctl configtest
     if systemctl is-active --quiet apache2; then
-        systemctl reload apache2
+        # PHP module の更新後に古い worker を残さないよう Apache worker を再起動する。
+        systemctl restart apache2
     else
         systemctl enable --now apache2
     fi
@@ -620,8 +670,7 @@ apt-get install -y --no-install-recommends \
     apache2 ca-certificates composer curl git libapache2-mod-php openssl php php-cli \
     php-curl php-sqlite3 python3 sqlite3
 
-php -r 'exit(version_compare(PHP_VERSION, "8.3.0", ">=") ? 0 : 1);' \
-    || fail "Resolver には PHP 8.3 以上が必要です。"
+verify_php_security_patch
 php -r 'exit(extension_loaded("pdo_sqlite") ? 0 : 1);' \
     || fail "PHP pdo_sqlite extension が有効ではありません。"
 runuser -u www-data -- test -r "${LAB_ROOT}/public/index.html" \

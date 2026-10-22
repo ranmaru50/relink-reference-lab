@@ -6,6 +6,8 @@
 
 The Lab server uses Apache 2.4, PHP 8.1+, and PDO SQLite. The existing `relink-resolver` runs as a separate service. Composer installs PHPUnit/PHPStan; pnpm installs Vitest/ESLint.
 
+The PHP runtime serving public requests must include the PHP2Shell fixes (CVE-2026-109618 / CVE-2026-109619): upstream releases 8.5.12, 8.4.27, 8.3.36, or 8.2.35 and later. Ubuntu may backport the fix while keeping its upstream version number, so verify package revisions using the [PHP advisory](https://www.php.net/archive/2026.php#2026-10-21-5) and [Ubuntu USN-8948-1](https://ubuntu.com/security/notices/USN-8948-1). Application code changes do not fix the PHP runtime vulnerability.
+
 ## Initialize the Lab
 
 1. Download the pinned Runtime asset:
@@ -54,7 +56,7 @@ This lab does not provide `/relink/{uuid}`. Verify that the Resolver's `303 Loca
 
 ## Public HTTPS
 
-Terminate TLS in Apache or a normal HTTPS hosting/reverse-proxy service. CORS for `public/arxml/pico2w.arxml` and the PHP API is configured for browser execution, but Resolver CORS and Lab/AR-XML CORS must be checked independently.
+Terminate TLS in Apache or a normal HTTPS hosting/reverse-proxy service. The PHP Capability API allows same-origin requests by default; set `LAB_ALLOWED_ORIGINS` to exact HTTPS origins when a separate trusted UI needs access. Resolver CORS and Lab/AR-XML CORS must be checked independently.
 
 No custom domain is required; a provider HTTPS endpoint is sufficient. Certificates, DNS, and proxy headers belong to the Web infrastructure, not to RELink Resolver or AR-XML semantics.
 

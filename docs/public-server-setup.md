@@ -79,6 +79,8 @@ sudo ./scripts/setup-linux.sh \
 
 The script installs the required packages, pins and installs the resolver runtime, creates both SQLite databases, registers the Anchor, writes Apache virtual hosts, and runs an acceptance check. It is designed to be idempotent, so rerunning it after a failed or interrupted step is supported.
 
+The setup verifies that the installed PHP packages include the PHP2Shell fixes (CVE-2026-109618 / CVE-2026-109619) and stops if they are missing or cannot be identified. Ubuntu may retain the upstream PHP version number for a backported fix; check the package revision against the [PHP advisory](https://www.php.net/archive/2026.php#2026-10-21-5) and [Ubuntu USN-8948-1](https://ubuntu.com/security/notices/USN-8948-1). After package installation, the script restarts Apache to replace existing workers.
+
 The local certificate is suitable for initial smoke tests only. Public browsers will not trust it.
 
 Before requesting the public certificate, test the execution surface from a client outside the server. Both requests must return `403`; `-k` is acceptable only for this local-CA bootstrap check:

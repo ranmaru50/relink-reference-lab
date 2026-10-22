@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/src/bootstrap.php';
 
-lab_handle_options();
+lab_handle_options(false);
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     lab_json_response(405, ['error' => 'method not allowed']);
 }

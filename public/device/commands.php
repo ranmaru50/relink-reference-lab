@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/src/bootstrap.php';
 
-lab_handle_options();
+lab_handle_options(false);
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     lab_json_response(405, ['error' => 'method not allowed']);
 }
@@ -20,7 +20,7 @@ try {
     $command = lab_store()->claimNext($config['device_id']);
     if ($command === null) {
         http_response_code(204);
-        header('Access-Control-Allow-Origin: *');
+        header('Cache-Control: no-store');
         header('Referrer-Policy: no-referrer');
         exit;
     }

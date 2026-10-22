@@ -6,6 +6,8 @@
 
 Lab のサーバー側は Apache 2.4 + PHP 8.1+ + PDO SQLite です。Resolver は別サービスとして既存 `relink-resolver` を使います。PHPUnit / PHPStan は Composer、Vitest / ESLint は pnpm で導入します。
 
+公開サーバーで実行する PHP は、PHP2Shell（CVE-2026-109618 / CVE-2026-109619）の修正版である必要があります。PHP 公式修正版は 8.5.12、8.4.27、8.3.36、8.2.35 以降です。Ubuntu のバックポートパッケージは `php -v` に修正前の upstream 版番号を表示する場合があるため、[PHP公式アドバイザリ](https://www.php.net/archive/2026.php#2026-10-21-5) と [Ubuntu USN-8948-1](https://ubuntu.com/security/notices/USN-8948-1) に従って package revision を確認してください。アプリケーションコードの変更では PHP runtime の脆弱性は修正されません。
+
 ## 初期化
 
 1. Runtime を取得する。
@@ -54,7 +56,7 @@ https://<resolver-host>/relink/550e8400-e29b-41d4-a716-446655440000
 
 ## 公開 HTTPS
 
-Lab の Apache 自体、または通常の HTTPS hosting / reverse proxy で TLS を終端します。`public/arxml/pico2w.arxml` と PHP API の CORS はブラウザー実行に必要な範囲で設定しています。Resolver の CORS と AR-XML の CORS は別々に確認してください。
+Lab の Apache 自体、または通常の HTTPS hosting / reverse proxy で TLS を終端します。PHP Capability API は same-origin を既定とし、別 origin の UI が必要な場合は `LAB_ALLOWED_ORIGINS` に完全一致する HTTPS origin を設定します。Resolver の CORS と AR-XML の CORS は別々に確認してください。
 
 カスタムドメインは不要です。プロバイダーが提供する HTTPS endpoint で構いません。HTTPS の証明書・DNS・proxy header は Web インフラの責務であり、RELink Resolver / AR-XML semantics には含まれません。
 

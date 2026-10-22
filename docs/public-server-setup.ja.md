@@ -80,6 +80,8 @@ sudo ./scripts/setup-linux.sh \
 
 このコマンドは、Apache／PHP 8.3／Composer／SQLite、固定 commit の Resolver、Runtime 0.2.0、SQLite、初期 Anchor、Apache VirtualHost、受け入れ検証を構成します。再実行しても互換する Anchor、データベース、秘密値を保持します。
 
+セットアップは PHP2Shell（CVE-2026-109618 / CVE-2026-109619）の修正版 package を確認し、未修正または判定できない場合は停止します。Ubuntu の修正版は upstream の PHP 表示版を維持することがあるため、[PHP公式アドバイザリ](https://www.php.net/archive/2026.php#2026-10-21-5) と [Ubuntu USN-8948-1](https://ubuntu.com/security/notices/USN-8948-1) に照らして package revision を確認してください。パッケージ更新後、セットアップは Apache を再起動して worker を入れ替えます。
+
 公開証明書を取得する前に、サーバー外部のクライアントから実行面を確認します。次の2つはどちらも `403` になります。`-k` はこの実験用 CA の確認に限って使用してください。
 
 ```bash

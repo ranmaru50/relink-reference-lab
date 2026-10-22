@@ -67,6 +67,7 @@ Resolver は UUID と current AR-XML Description Location の対応だけを扱�
 
 - Apache 2.4（`mod_rewrite`、`.htaccess` の `AllowOverride FileInfo`）
 - PHP 8.1 以上（PDO、`pdo_sqlite`、JSON）
+- 公開環境では PHP2Shell（CVE-2026-109618 / CVE-2026-109619）修正済みの runtime が必要です。修正版の確認方法は[セットアップ手順](docs/setup.ja.md)を参照してください。
 - SQLite 3
 - Composer（PHPUnit / PHPStan の導入用）
 - Node.js 20 以上、pnpm（Vitest / ESLint の導入用）
@@ -128,7 +129,7 @@ Apache VirtualHost の `DocumentRoot` をこのリポジトリの `public/` に�
 /device/results/{command_id}
 ```
 
-`LAB_DB_PATH`、`DEVICE_ID`、`DEVICE_COMMAND_TIMEOUT` は Apache の VirtualHost または PHP-FPM pool で設定します。公開時は通常の HTTPS reverse proxy / hosting で TLS を終端してください。
+`LAB_DB_PATH`、`DEVICE_ID`、`DEVICE_COMMAND_TIMEOUT`、`LAB_ALLOWED_ORIGINS` は Apache の VirtualHost または PHP-FPM pool で設定します。`LAB_ALLOWED_ORIGINS` は別 origin に配置した信頼済み Web UI の origin をカンマ区切りで指定します。未設定時は Capability API を same-origin に限定します。公開時は通常の HTTPS reverse proxy / hosting で TLS を終端してください。
 
 ### 4. 既存 Resolver を登録
 

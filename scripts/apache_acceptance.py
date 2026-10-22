@@ -172,8 +172,8 @@ def run(
         400,
         "light input validation",
     )
-    if invalid_light.headers.get("Access-Control-Allow-Origin") != "*":
-        raise RuntimeError("Capability API is missing the CORS header")
+    if invalid_light.headers.get("Access-Control-Allow-Origin") is not None:
+        raise RuntimeError("Capability API enabled CORS without a trusted Origin")
 
     expect(
         request(base_url, "/api/temperature", "OPTIONS", opener=opener),

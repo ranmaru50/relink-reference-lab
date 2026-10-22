@@ -59,6 +59,7 @@ The Resolver maps a UUID to the current AR-XML Description Location. It does not
 
 - Apache 2.4 with `mod_rewrite` and `.htaccess` `AllowOverride FileInfo`.
 - PHP 8.1+ with PDO, `pdo_sqlite`, and JSON.
+- Public deployments must use a PHP runtime patched for PHP2Shell (CVE-2026-109618 / CVE-2026-109619); see the [setup guide](docs/setup.md) for version verification.
 - SQLite 3.
 - Composer for PHPUnit and PHPStan.
 - Node.js 20+ and pnpm for Vitest and ESLint.

@@ -60,11 +60,17 @@ In both `local-ca` and `public` modes, `/api/` and `/device/` are restricted to 
 
 The managed PHP security file is installed in Apache's global `conf.d` directory, so its limits apply to every Apache VirtualHost using mod_php on this host. Use a dedicated experiment host, or review these limits before sharing the host with unrelated PHP applications.
 
+### PHP2Shell
+
+Changes to this repository's PHP code do not fix PHP2Shell (CVE-2026-109618 / CVE-2026-109619), which affects the PHP runtime before application code handles a request. Update every web-serving PHP runtime to a fixed release: PHP 8.5.12, 8.4.27, 8.3.36, or 8.2.35 and later. See the [official PHP advisory](https://www.php.net/archive/2026.php#2026-10-21-5).
+
+Ubuntu may backport the fix while retaining its upstream version number. For Ubuntu 24.04 mod_php, verify that `libapache2-mod-php8.3` is at least `8.3.6-0ubuntu0.24.04.13`, as listed in [Ubuntu USN-8948-1](https://ubuntu.com/security/notices/USN-8948-1). `php -v` alone cannot identify such a backport; inspect package revisions with `dpkg-query -W -f='${Package} ${Version}\n' 'libapache2-mod-php*' 'php*-cli' 'php*-common'`, then run `sudo systemctl restart apache2`. The setup script checks known fixed package versions and stops if it cannot verify the installed version.
+
 ### Changes and safe reruns
 
 The script modifies APT packages, the Resolver checkout, both data directories, `/etc/relink-reference-lab`, the managed Apache hardening/PHP security configuration, `/etc/apache2/sites-available/relink-*.conf`, corresponding enabled-site symlinks, and one managed line in the VM's `/etc/hosts`. In public mode it also manages the marked Certbot deploy hook. Unmarked existing configuration is never overwritten. It does not copy the Lab clone elsewhere, so keep that clone in place while deployed.
 
-Rerunning with the same arguments is safe. The script re-verifies the pinned revision, reapplies migrations and idempotent table initialization, and preserves existing secrets, SQLite data, and a compatible Anchor registration. It fails instead of changing an Anchor with a different identity, location, lifecycle, or Manifest mode; a Resolver checkout with local changes; an unrelated Apache site with the same name; an unmanaged hardening file; or an unmanaged Certbot hook. Apache reload occurs only after `apache2ctl configtest`, and a later verification failure restores the previous Apache, PHP security, hosts, and managed-hook state.
+Rerunning with the same arguments is safe. The script re-verifies the pinned revision, reapplies migrations and idempotent table initialization, and preserves existing secrets, SQLite data, and a compatible Anchor registration. It fails instead of changing an Anchor with a different identity, location, lifecycle, or Manifest mode; a Resolver checkout with local changes; an unrelated Apache site with the same name; an unmanaged hardening file; or an unmanaged Certbot hook. Apache restarts only after `apache2ctl configtest`, and a later verification failure restores the previous Apache, PHP security, hosts, and managed-hook state.
 
 ### Removal
 
@@ -266,6 +272,7 @@ Configure:
 LAB_DB_PATH=/var/lib/relink-reference-lab/lab.sqlite
 DEVICE_ID=pico2w-01
 DEVICE_COMMAND_TIMEOUT=8
+LAB_ALLOWED_ORIGINS=https://lab.example
 ```
 
 `LAB_DB_PATH` defaults to `data/lab.sqlite` inside the checkout. Use an explicit absolute path outside the DocumentRoot for a public deployment.
@@ -276,6 +283,7 @@ DEVICE_COMMAND_TIMEOUT=8
 <VirtualHost *:443>
     ServerName lab.example
     DocumentRoot /var/www/relink-reference-lab/public
+    SetEnv LAB_ALLOWED_ORIGINS "https://lab.example"
 
     <Directory /var/www/relink-reference-lab/public>
         AllowOverride All
@@ -287,14 +295,15 @@ DEVICE_COMMAND_TIMEOUT=8
         Require local
     </LocationMatch>
 
-    Header always set Access-Control-Allow-Origin "*"
-    Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    <FilesMatch "\.arxml$">
+        Header always set Access-Control-Allow-Origin "*"
+    </FilesMatch>
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "no-referrer"
 </VirtualHost>
 ```
 
-`Access-Control-Allow-Origin: *` is a simple reference-Lab setting. Authenticated or user-limited deployments should restrict it to the Web-app origin and align Resolver CORS with Lab/AR-XML CORS. When Resolver and Lab are different origins, both must permit the browser fetches.
+The PHP Capability API allows same-origin requests by default. Set `LAB_ALLOWED_ORIGINS` to exact HTTPS origins when a separate trusted UI needs access. Origin checks reduce browser CSRF exposure; they do not replace authentication, authorization, or Apache network restrictions. `Access-Control-Allow-Origin: *` applies only to public AR-XML fetches. When Resolver and Lab are different origins, both the Resolver and Lab's static AR-XML must permit the browser fetches.
 
 ### AR-XML and Web app
 

@@ -60,11 +60,17 @@ sudo ./scripts/setup-linux.sh \
 
 管理対象の PHP security ファイルは Apache のグローバルな `conf.d` に配置されるため、このホストで mod_php を使うすべての Apache VirtualHost に制限が適用されます。専用の実験ホストで使用するか、共有ホストでは他の PHP アプリケーションへの影響を確認してください。
 
+### PHP2Shell 対策
+
+このリポジトリの PHP コード変更だけでは、PHP 実行エンジンの脆弱性 PHP2Shell（CVE-2026-109618 / CVE-2026-109619）は修正されません。PHP はアプリケーションコードより前に攻撃リクエストを処理するため、Web リクエストを処理する PHP runtime 自体を修正版へ更新してください。PHP 公式の修正版は 8.5.12、8.4.27、8.3.36、8.2.35 以降です。[PHP公式アドバイザリ](https://www.php.net/archive/2026.php#2026-10-21-5)
+
+Ubuntu は upstream と異なる版番号を保った修正パッケージを提供する場合があります。Ubuntu 24.04 の mod_php では `libapache2-mod-php8.3` が `8.3.6-0ubuntu0.24.04.13` 以降であることを確認してください。[Ubuntu USN-8948-1](https://ubuntu.com/security/notices/USN-8948-1) `php -v` だけではバックポートを判別できないため、`dpkg-query -W -f='${Package} ${Version}\n' 'libapache2-mod-php*' 'php*-cli' 'php*-common'` で package revision を確認し、更新後に `sudo systemctl restart apache2` を実行してください。セットアップスクリプトも既知の修正版 package を確認し、判定できない版では停止します。
+
 ### 変更されるものと再実行
 
 スクリプトはAPT package、Resolver checkout、2つのデータディレクトリ、`/etc/relink-reference-lab`、管理対象のApache hardening／PHP security設定、`/etc/apache2/sites-available/relink-*.conf`、対応するsite symlink、VM内の`/etc/hosts`管理行を変更します。public modeではmarker付きのCertbot deploy hookも管理します。markerのない既存設定は上書きしません。Labのclone自体は別場所へコピーしないため、配備中は移動・削除しないでください。
 
-同じ引数での再実行は安全です。固定revisionを再確認し、migrationと冪等なtable初期化を再適用し、既存の秘密値・SQLite・互換なAnchor登録を保持します。Anchorが異なるIdentity、Location、Lifecycle、Manifest modeですでに存在する場合、Resolver checkoutに未コミット変更がある場合、同名の管理対象外Apache site、hardening設定、Certbot hookがある場合は上書きせず失敗します。Apacheは`apache2ctl configtest`成功後だけreloadし、後続検証が失敗した場合は以前のApache、PHP security、hosts、管理対象hookの状態へ戻します。
+同じ引数での再実行は安全です。固定revisionを再確認し、migrationと冪等なtable初期化を再適用し、既存の秘密値・SQLite・互換なAnchor登録を保持します。Anchorが異なるIdentity、Location、Lifecycle、Manifest modeですでに存在する場合、Resolver checkoutに未コミット変更がある場合、同名の管理対象外Apache site、hardening設定、Certbot hookがある場合は上書きせず失敗します。Apacheは`apache2ctl configtest`成功後に再起動し、後続検証が失敗した場合は以前のApache、PHP security、hosts、管理対象hookの状態へ戻します。
 
 ### 削除
 
@@ -313,6 +319,7 @@ ApacheまたはPHP-FPMへ、Resolver登録で使った`DEVICE_ID`と同じ値を
 LAB_DB_PATH=/var/lib/relink-reference-lab/lab.sqlite
 DEVICE_ID=pico2w-01
 DEVICE_COMMAND_TIMEOUT=8
+LAB_ALLOWED_ORIGINS=https://lab.example
 ```
 
 `LAB_DB_PATH`を省略した場合の既定値は、Lab checkout内の`data/lab.sqlite`です。開発用の既定値は利用できますが、公開環境ではDocumentRoot外の絶対パスを明示してください。
@@ -325,6 +332,7 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
 <VirtualHost *:443>
     ServerName lab.example
     DocumentRoot /var/www/relink-reference-lab/public
+    SetEnv LAB_ALLOWED_ORIGINS "https://lab.example"
 
    <Directory /var/www/relink-reference-lab/public>
        AllowOverride All
@@ -336,15 +344,16 @@ LabのDocumentRootを`public/`にします。Labの`.htaccess`は`Options`と`Re
         Require local
     </LocationMatch>
 
-   # AR-XMLとResolver-mediated fetchを許可する。必要なら本番のUI originへ限定する。
-    Header always set Access-Control-Allow-Origin "*"
-    Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+   # 公開 AR-XML の cross-origin fetch を許可する。PHP APIにはこの設定を適用しない。
+    <FilesMatch "\.arxml$">
+        Header always set Access-Control-Allow-Origin "*"
+    </FilesMatch>
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "no-referrer"
 </VirtualHost>
 ```
 
-`Access-Control-Allow-Origin: *`は参照Labの簡易設定です。認証付き・利用者限定の構成では、許可するWebアプリoriginへ絞り、ResolverのCORS設定とも整合させてください。Resolverの公開URLとLabのAR-XML URLが別originの場合、ResolverとLabの両方からブラウザーの取得を許可する必要があります。
+PHP Capability API は same-origin とし、別 origin の UI を使う場合は `LAB_ALLOWED_ORIGINS` に完全一致する HTTPS origin を設定してください。この Origin 制限は browser 経由の CSRF 対策であり、認証・認可や Apache のネットワーク制限の代替ではありません。`Access-Control-Allow-Origin: *` は公開 AR-XML の fetch に限ります。Resolverの公開URLとLabのAR-XML URLが別originの場合、ResolverとLabの静的 AR-XML の両方からブラウザーの取得を許可する必要があります。
 
 ### 4.4 AR-XMLを設定する
 
