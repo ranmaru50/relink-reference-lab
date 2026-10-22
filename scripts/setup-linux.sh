@@ -295,9 +295,11 @@ verify_php_security_patch() {
         if dpkg --compare-versions "${package_version}" ge "${fixed_upstream_version}"; then
             continue
         fi
-        [[ -n "${vendor_fixed_version}" ]] \
-            && dpkg --compare-versions "${package_version}" ge "${vendor_fixed_version}" \
-            || fail "${package} ${package_version} は PHP2Shell 未修正です。PHP ${fixed_upstream_version} 以降、またはディストリビューターの修正版へ更新してください。"
+        if [[ -n "${vendor_fixed_version}" ]] \
+            && dpkg --compare-versions "${package_version}" ge "${vendor_fixed_version}"; then
+            continue
+        fi
+        fail "${package} ${package_version} は PHP2Shell 未修正です。PHP ${fixed_upstream_version} 以降、またはディストリビューターの修正版へ更新してください。"
     done
 
     log "PHP2Shell 修正版を確認しました: PHP ${php_version} (${php_branch})"
