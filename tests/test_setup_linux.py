@@ -55,13 +55,13 @@ def test_setup_preserves_resolver_management_boundary() -> None:
     assert "INSERT INTO resolver_records" not in registration
 
 
-def test_apache_is_validated_before_reload() -> None:
-    """新しい site は configtest 成功後にだけ reload される。"""
+def test_apache_is_validated_before_restart() -> None:
+    """新しい site は configtest 成功後にだけ restart される。"""
     setup = SETUP_SCRIPT.read_text(encoding="utf-8")
     write_sites = setup[setup.index("write_apache_sites()") :]
 
     assert write_sites.index("apache2ctl configtest") < write_sites.index(
-        "systemctl reload apache2"
+        "systemctl restart apache2"
     )
     assert "restore_apache_state" in setup
 
