@@ -75,7 +75,7 @@ function lab_normalize_origin(string $origin): ?string
     $scheme = strtolower($parts['scheme']);
     $host = strtolower($parts['host']);
     $port = $parts['port'] ?? null;
-    if ($port !== null && ($port < 1 || $port > 65535)) {
+    if ($port !== null && $port < 1) {
         return null;
     }
     if (($scheme === 'http' && $port === 80) || ($scheme === 'https' && $port === 443)) {
@@ -174,7 +174,7 @@ function lab_read_json(): array
         throw new InvalidArgumentException('JSON body は 1 byte 以上 4096 bytes 以下で必要です');
     }
     $body = file_get_contents('php://input');
-    if ($body === false || strlen($body) !== $length || strlen($body) > 4096) {
+    if ($body === false || strlen($body) !== $length) {
         throw new InvalidArgumentException('JSON body を読み込めません');
     }
     $value = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
